@@ -1,5 +1,35 @@
 import random
 import time
+import requests
+
+BASE_URL = "http://localhost:8000"
+MAX_QUEUE_SIZE = 3
+
+
+def get_queue_size() -> int:
+    """Get current queue size from status endpoint."""
+    try:
+        response = requests.get(f"{BASE_URL}/ideas/status")
+        response.raise_for_status()
+        return response.json()["size"]
+    except requests.RequestException as e:
+        print(f"Error getting queue size: {e}")
+        return 0
+
+
+def submit_to_queue(prompt: str) -> bool:
+    """Submit an idea to the queue."""
+    try:
+        response = requests.post(
+            f"{BASE_URL}/ideas/",
+            json={"prompt": prompt, "repos": []}
+        )
+        response.raise_for_status()
+        return True
+    except requests.RequestException as e:
+        print(f"Error submitting to queue: {e}")
+        return False
+
 
 def propose_idea() -> str:
     ideas =  [
@@ -29,24 +59,20 @@ def propose_idea() -> str:
 
 def start():
     while True:
-        # possibly some backpressure based off queue size here
-        # status = get_queue_status()
-        
-        status = {
-            'is_full': False,
-            'size': 10,
-            'max_size': 100,
-        }
-        if status['is_full']:
+        queue_size = get_queue_size()
+
+        # Backpressure based on queue fullness
+        if queue_size >= MAX_QUEUE_SIZE:
             time.sleep(30)
             continue
-        elif status['size'] / status['max_size'] >= 0.8:
+        elif queue_size / MAX_QUEUE_SIZE >= 0.8:
             time.sleep(10)
-        elif status['size'] / status['max_size'] >= 0.5:
+        elif queue_size / MAX_QUEUE_SIZE >= 0.5:
             time.sleep(2)
 
         idea = propose_idea()
-        print(idea)
+        if submit_to_queue(idea):
+            print(f"Submitted: {idea}")
 
 
 if __name__ == "__main__":

@@ -2,25 +2,58 @@
 # This is an infinitely running process which pulls from api to get ideas, and does them in a secure place that can be revisited and verified.
 
 import anyio
-import uuid
 import os
+import time
+import requests
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, Message
 
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
+
+BASE_URL = "http://localhost:8000"
 
 class JobReport(BaseModel):
     summary: str = Field(description="description of what you made and how you did it")
     entry_point: str = Field(default=f"./projects/<uuid>/index.html", description="the entry point of the project")
 
 
-def get_prompt():
-    # get from the queue here, returns prompt and job id
-    return "make me a todo list website using html, css, js", f"TEST_{uuid.uuid4()}"
+def fetch_from_queue():
+    """Fetch next job from queue. Returns (prompt, job_id) or None if empty."""
+    try:
+        response = requests.get(f"{BASE_URL}/ideas/pop")
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        job = response.json()
+        return job['prompt'], job['id']
+    except requests.RequestException as e:
+        print(f"Error fetching from queue: {e}")
+        return None
 
-def complete_job(job_id: str, summary: str):
-    # make api request to update completion status here
-    # make api req to add to completed jobs queue here
+
+def get_prompt():
+    """Poll queue until a job is available."""
+    while True:
+        result = fetch_from_queue()
+        if result:
+            return result
+        time.sleep(5)  # Wait before polling again
+
+def mark_complete(job_id: int, summary: str):
+    """Mark a job as completed via PATCH endpoint."""
+    try:
+        response = requests.patch(
+            f"{BASE_URL}/ideas/",
+            json={"id": job_id, "state": "Completed"}
+        )
+        response.raise_for_status()
+        print(f"Job {job_id} marked as completed")
+    except requests.RequestException as e:
+        print(f"Error marking job complete: {e}")
+
+
+def complete_job(job_id: int, summary: str):
+    mark_complete(job_id, summary)
     return {
         "id": job_id,
         "summary": summary,

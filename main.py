@@ -1,13 +1,16 @@
-from flask import Flask
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
 import threading
-import atexit
 import signal
 import sys
 import time
 
-from idea_routes import idea_blueprint
+from idea_routes import idea_router
+from services.claude import start as claude_start
+from services.ideas import start as ideas_start
 
 claude_thread: threading.Thread
+ideas_thread: threading.Thread
 
 count = 0
 
@@ -30,22 +33,37 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 
-atexit.register(cleanup)
-
 # Register for various termination signals
 signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
 signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
 
-app = Flask(__name__)
-app.register_blueprint(idea_blueprint)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start background threads
+    global claude_thread, ideas_thread
+
+    claude_thread = threading.Thread(target=claude_start, daemon=True)
+    claude_thread.start()
+
+    ideas_thread = threading.Thread(target=ideas_start, daemon=True)
+    ideas_thread.start()
+
+    print("Hello from cc-forever!")
+
+    yield
+
+    # Shutdown
+    cleanup()
+
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(idea_router)
 
 
 def main():
-    print("Hello from cc-forever!")
-
-    # Start threads
-    claude_thread = threading.Thread(target=test, daemon=True)
-    claude_thread.start()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
     app.run(debug=False)
 
