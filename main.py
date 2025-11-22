@@ -3,6 +3,7 @@ import threading
 import atexit
 import signal
 import sys
+import time
 
 from idea_routes import idea_blueprint
 
@@ -15,12 +16,13 @@ def test():
     global count
     while True:
         count += 1
+        time.sleep(0.001)
 
 
 def cleanup():
     global count
     # TODO: kill threads
-    print(count)
+    print(f"Final count: {count}")
 
 
 def signal_handler(signum, frame):
@@ -41,11 +43,11 @@ app.register_blueprint(idea_blueprint)
 def main():
     print("Hello from cc-forever!")
 
-    app.run(debug=False)
-
     # Start threads
     claude_thread = threading.Thread(target=test, daemon=True)
     claude_thread.start()
+
+    app.run(debug=False)
 
 
 if __name__ == "__main__":

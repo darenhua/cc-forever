@@ -22,9 +22,17 @@ class Idea:
         self.state = state
 
 
+@dataclass
+class QueueStatusResponse:
+    is_full: bool
+    size: int
+    max_size: int
+
+
 work_queue = []
 ideas = {}
 idea_count = 0
+max_queue_size = 50
 
 
 @idea_blueprint.get('/pop')
@@ -83,6 +91,9 @@ def getIdea(id: int):
 def createIdea():
     global idea_count
 
+    if len(work_queue) >= max_queue_size:
+        return Response('Idea queue is full', status=400)
+
     data = request.get_json()
 
     if 'prompt' not in data:
@@ -112,4 +123,14 @@ def createIdea():
 
     idea_count = idea_count + 1
 
-    return Response(status=204)
+    return jsonify(asdict(i))
+
+
+@idea_blueprint.get("/status")
+def getQueueStatus():
+    q = QueueStatusResponse(
+            size=len(work_queue),
+            max_size=max_queue_size,
+            is_full=len(work_queue) >= max_queue_size
+            )
+    return jsonify(asdict(q))
