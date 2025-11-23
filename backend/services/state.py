@@ -110,14 +110,8 @@ def get_state():
 
 
 # Queue-related data structures
-class CodeFile(BaseModel):
-    filename: str
-    code: str
-
-
 class BuildingBlock(BaseModel):
-    folder_name: str
-    files: List[CodeFile]
+    folder_path: str
 
 
 class Idea(BaseModel):
@@ -127,6 +121,7 @@ class Idea(BaseModel):
     state: str
     created_at: str
     project_path: Optional[str] = None  # Path to project folder (projects/<timestamp>/<id>)
+    depth: int = 0
 
 
 _queue_state = {
