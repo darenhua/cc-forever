@@ -25,7 +25,7 @@ function RouteComponent() {
                     <div key={idea.id}>
                         <div className="my-6">
                             <iframe
-                                src={`http://localhost:8000/projects/${idea.id}/index.html`}
+                                src={`http://localhost:8000/projects/${idea.project_path || idea.id}/index.html`}
                                 className="w-full border-0"
                                 style={{ height: '600px' }}
                                 onLoad={(e) => {

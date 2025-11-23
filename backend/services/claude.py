@@ -3,6 +3,7 @@
 
 from typing import Dict
 import anyio
+import aiofiles
 import os
 import time
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, Message
@@ -10,7 +11,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
 
-from services.state import Idea, start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea
+from services.state import Idea, start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea, get_session_timestamp
 
 
 class JobReport(BaseModel):
@@ -47,8 +48,17 @@ def complete_job(job_id: int, summary: str):
 async def run_once(idea: Dict):
     prompt = idea["prompt"]
     job_id = idea["id"]
-    project_path = f"./projects/{job_id}"
+    session_timestamp = get_session_timestamp()
+
+    # Create timestamped project path: projects/<timestamp>/<id>
+    project_path = f"./projects/{session_timestamp}/{job_id}"
     project_resources_path = project_path + "/resources"
+
+    # Store the project path in the idea for frontend access
+    # Path is relative to the static mount point (without ./)
+    relative_project_path = f"{session_timestamp}/{job_id}"
+    update_idea(job_id, project_path=relative_project_path)
+
     start_job(job_id, prompt)
 
     try:
@@ -60,8 +70,8 @@ async def run_once(idea: Dict):
             folder_path = project_resources_path + "/" + block["folder_name"]
             os.makedirs(folder_path, exist_ok=True)
             for file in block["files"]:
-                f = open(folder_path + "/" + file["filename"], "x")
-                f.write(file["code"])
+                async with aiofiles.open(folder_path + "/" + file["filename"], "x") as f:
+                    await f.write(file["code"])
 
         server = create_sdk_mcp_server(
             name="my-tools",
@@ -80,7 +90,7 @@ async def run_once(idea: Dict):
             }
         )
 
-        instructions = "When you are done, please summarize what you made and how you did it."
+        instructions = "First read all the files in the resources folder. When you are done, please summarize what you made and how you did it."
 
         async with ClaudeSDKClient(options=options) as client:
             await client.query(f"{prompt}\n\n{instructions}")
@@ -101,13 +111,19 @@ async def run_once(idea: Dict):
 
     finally:
         finish_job()
-        # Clean up empty directories in projects folder
+        # Clean up empty directories in projects folder (including nested timestamp dirs)
         from pathlib import Path
         projects_dir = Path("./projects")
         if projects_dir.exists():
-            for dir_path in projects_dir.iterdir():
-                if dir_path.is_dir() and not any(dir_path.iterdir()):
-                    dir_path.rmdir()
+            # Clean up empty project directories within timestamp folders
+            for timestamp_dir in projects_dir.iterdir():
+                if timestamp_dir.is_dir():
+                    for project_dir in timestamp_dir.iterdir():
+                        if project_dir.is_dir() and not any(project_dir.iterdir()):
+                            project_dir.rmdir()
+                    # Also clean up empty timestamp directories
+                    if not any(timestamp_dir.iterdir()):
+                        timestamp_dir.rmdir()
 
 
 def start():

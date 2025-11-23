@@ -1150,13 +1150,13 @@ const game = new Phaser.Game(config);
 """
 
 snake = BuildingBlock(folder_name="snake",
-                      files=[CodeFile(filename="main.py",
+                      files=[CodeFile(filename="main.js",
                                       code=snake_code)])
 
 minesweeper = BuildingBlock(folder_name="minesweeper",
-                            files=[CodeFile(filename="main.py",
+                            files=[CodeFile(filename="main.js",
                                             code=minesweeper_code)])
 
 breakout = BuildingBlock(folder_name="breakout",
-                         files=[CodeFile(filename="main.py",
+                         files=[CodeFile(filename="main.js",
                                          code=breakout_code)])

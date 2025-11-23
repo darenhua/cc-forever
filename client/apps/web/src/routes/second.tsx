@@ -79,6 +79,7 @@ type Idea = {
 	repos: string[];
 	state: string;
 	created_at: string;
+	project_path: string | null;
 };
 
 export type AgentStatus = {

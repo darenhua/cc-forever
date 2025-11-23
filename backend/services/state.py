@@ -15,7 +15,8 @@ _state = {
     "current_job_id": None,
     "current_prompt": None,
     "started_at": None,
-    "conversation_log": []
+    "conversation_log": [],
+    "session_timestamp": None  # Timestamp for current agent session (folder grouping)
 }
 
 # Stop flag for graceful shutdown
@@ -28,6 +29,10 @@ def set_online(online: bool):
         _state["is_online"] = online
         if online:
             _stop_requested = False
+            # Set session timestamp when agent starts (used for folder grouping)
+            _state["session_timestamp"] = datetime.now().strftime("%Y%m%d_%H%M%S")
+        else:
+            _state["session_timestamp"] = None
 
 
 def request_stop():
@@ -44,6 +49,11 @@ def should_stop() -> bool:
 def is_online() -> bool:
     with _lock:
         return _state["is_online"]
+
+
+def get_session_timestamp() -> Optional[str]:
+    with _lock:
+        return _state["session_timestamp"]
 
 
 def start_job(job_id: str, prompt: str):
@@ -95,6 +105,7 @@ def get_state():
             "conversation_log": list(_state["conversation_log"]),
             "ideas_queue": [_idea.model_dump() for _idea in _queue_state["work_queue"]],
             "num_completed_ideas": len([idea for idea in _queue_state["ideas"].values() if idea.state == "Completed"]),
+            "session_timestamp": _state["session_timestamp"],
         }
 
 
@@ -115,6 +126,7 @@ class Idea(BaseModel):
     blocks: list[BuildingBlock]
     state: str
     created_at: str
+    project_path: Optional[str] = None  # Path to project folder (projects/<timestamp>/<id>)
 
 
 _queue_state = {
@@ -175,7 +187,8 @@ def list_all_ideas() -> List[Dict]:
 
 
 def update_idea(idea_id: int, prompt: Optional[str] = None,
-                blocks: Optional[list[BuildingBlock]] = None, state: Optional[str] = None) -> Optional[Dict]:
+                blocks: Optional[list[BuildingBlock]] = None, state: Optional[str] = None,
+                project_path: Optional[str] = None) -> Optional[Dict]:
     """Update an existing idea."""
     with _lock:
         if idea_id not in _queue_state["ideas"]:
@@ -188,6 +201,8 @@ def update_idea(idea_id: int, prompt: Optional[str] = None,
             idea.blocks = blocks
         if state is not None:
             idea.state = state
+        if project_path is not None:
+            idea.project_path = project_path
 
         return idea.model_dump()
 
@@ -212,4 +227,4 @@ def get_queue_size() -> int:
 def get_all_ideas() -> List[Dict]:
     """Get all ideas with Completed status."""
     with _lock:
-        return [idea.to_dict() for idea in _queue_state["ideas"].values() if idea.state == "Completed"]
+        return [idea.model_dump() for idea in _queue_state["ideas"].values() if idea.state == "Completed"]

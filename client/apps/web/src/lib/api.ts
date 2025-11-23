@@ -25,6 +25,7 @@ export interface Idea {
     prompt: string;
     repos: string[];
     state: string;
+    project_path: string | null;  // Path to project folder (e.g., "20231123_143022/1")
 }
 
 export interface QueueStatusResponse {
