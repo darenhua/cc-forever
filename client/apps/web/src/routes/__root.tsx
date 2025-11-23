@@ -9,7 +9,7 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import "../index.css";
 
-export interface RouterAppContext {}
+export interface RouterAppContext { }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
 	component: RootComponent,
@@ -48,7 +48,7 @@ function RootComponent() {
 				</div>
 				<Toaster richColors />
 			</ThemeProvider>
-			<TanStackRouterDevtools position="bottom-left" />
+			{/* <TanStackRouterDevtools position="bottom-left" /> */}
 		</>
 	);
 }

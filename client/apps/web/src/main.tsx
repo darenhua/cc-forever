@@ -1,7 +1,18 @@
 import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ReactDOM from "react-dom/client";
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
+
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 1000 * 60, // 1 minute
+			refetchOnWindowFocus: false,
+		},
+	},
+});
 
 const router = createRouter({
 	routeTree,
@@ -24,5 +35,10 @@ if (!rootElement) {
 
 if (!rootElement.innerHTML) {
 	const root = ReactDOM.createRoot(rootElement);
-	root.render(<RouterProvider router={router} />);
+	root.render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+			{/* <ReactQueryDevtools initialIsOpen={false} /> */}
+		</QueryClientProvider>
+	);
 }

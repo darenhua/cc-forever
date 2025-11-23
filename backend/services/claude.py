@@ -10,6 +10,8 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
 
+from services.state import start_job, add_message, finish_job, set_online, should_stop
+
 BASE_URL = "http://localhost:8000"
 
 class JobReport(BaseModel):
@@ -29,15 +31,6 @@ def fetch_from_queue():
     except requests.RequestException as e:
         print(f"Error fetching from queue: {e}")
         return None
-
-
-def get_prompt():
-    """Poll queue until a job is available."""
-    while True:
-        result = fetch_from_queue()
-        if result:
-            return result
-        time.sleep(5)  # Wait before polling again
 
 def mark_complete(job_id: int, summary: str):
     """Mark a job as completed via PATCH endpoint."""
@@ -62,7 +55,8 @@ def complete_job(job_id: int, summary: str):
 
 async def run_once(prompt: str, job_id: str):
     project_path = f"./projects/{job_id}"
-    
+    start_job(job_id, prompt)
+
     try:
         os.makedirs(project_path, exist_ok=True)
         
@@ -89,6 +83,7 @@ async def run_once(prompt: str, job_id: str):
             await client.query(f"{prompt}\n\n{instructions}")
             async for msg in client.receive_response():
                 print(msg)
+                add_message(msg)
 
                 if hasattr(msg, 'structured_output'):
                     # Validate and get fully typed result
@@ -102,6 +97,7 @@ async def run_once(prompt: str, job_id: str):
         print(f"Error occurred: {e}")
 
     finally:
+        finish_job()
         # Clean up empty directories in projects folder
         from pathlib import Path
         projects_dir = Path("./projects")
@@ -112,11 +108,20 @@ async def run_once(prompt: str, job_id: str):
     
 
 def start():
-    while True:
-        prompt, job_id = get_prompt()
-        summary = anyio.run(lambda: run_once(prompt, job_id))
-        # report back to the coordinator that the task is complete
-        complete_job(job_id, summary)
+    set_online(True)
+    try:
+        while not should_stop():
+            result = fetch_from_queue()
+            if result:
+                prompt, job_id = result
+                summary = anyio.run(lambda: run_once(prompt, job_id))
+                # report back to the coordinator that the task is complete
+                complete_job(job_id, summary)
+            else:
+                # No job available, wait before polling again
+                time.sleep(5)
+    finally:
+        set_online(False)
 
 
 if __name__ == "__main__":

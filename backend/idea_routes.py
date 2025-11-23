@@ -35,12 +35,12 @@ class QueueStatusResponse(BaseModel):
 work_queue: list[Idea] = []
 ideas: dict[int, Idea] = {}
 idea_count = 0
-max_queue_size = 50
+max_queue_size = 3
 
 
 @idea_router.get("/pop")
 def pop_idea():
-    if len(ideas) == 0:
+    if len(work_queue) == 0:
         raise HTTPException(status_code=404, detail="No ideas in queue")
 
     return work_queue.pop(0).model_dump()
@@ -89,6 +89,10 @@ def get_idea(id: int):
 @idea_router.post("/", status_code=204)
 def create_idea(data: CreateIdeaRequest):
     global idea_count
+
+    # Enforce max queue size
+    if len(work_queue) >= max_queue_size:
+        raise HTTPException(status_code=429, detail="Queue is full")
 
     i = Idea(
         id=idea_count + 1,

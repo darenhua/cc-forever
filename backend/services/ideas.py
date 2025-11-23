@@ -2,6 +2,8 @@ import random
 import time
 import requests
 
+from services.state import should_stop
+
 BASE_URL = "http://localhost:8000"
 MAX_QUEUE_SIZE = 3
 
@@ -9,7 +11,7 @@ MAX_QUEUE_SIZE = 3
 def get_queue_size() -> int:
     """Get current queue size from status endpoint."""
     try:
-        response = requests.get(f"{BASE_URL}/ideas/status")
+        response = requests.get(f"{BASE_URL}/ideas/status/")
         response.raise_for_status()
         return response.json()["size"]
     except requests.RequestException as e:
@@ -58,7 +60,7 @@ def propose_idea() -> str:
     return chosen
 
 def start():
-    while True:
+    while not should_stop():
         queue_size = get_queue_size()
 
         # Backpressure based on queue fullness
