@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ThirdRouteImport } from './routes/third'
 import { Route as SecondRouteImport } from './routes/second'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ThirdRoute = ThirdRouteImport.update({
+  id: '/third',
+  path: '/third',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SecondRoute = SecondRouteImport.update({
   id: '/second',
   path: '/second',
@@ -26,31 +32,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/second': typeof SecondRoute
+  '/third': typeof ThirdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/second': typeof SecondRoute
+  '/third': typeof ThirdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/second': typeof SecondRoute
+  '/third': typeof ThirdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/second'
+  fullPaths: '/' | '/second' | '/third'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/second'
-  id: '__root__' | '/' | '/second'
+  to: '/' | '/second' | '/third'
+  id: '__root__' | '/' | '/second' | '/third'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SecondRoute: typeof SecondRoute
+  ThirdRoute: typeof ThirdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/third': {
+      id: '/third'
+      path: '/third'
+      fullPath: '/third'
+      preLoaderRoute: typeof ThirdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/second': {
       id: '/second'
       path: '/second'
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SecondRoute: SecondRoute,
+  ThirdRoute: ThirdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

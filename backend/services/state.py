@@ -195,3 +195,9 @@ def get_queue_size() -> int:
     """Get current queue size."""
     with _lock:
         return len(_queue_state["work_queue"])
+
+
+def get_all_ideas() -> List[Dict]:
+    """Get all ideas with Completed status."""
+    with _lock:
+        return [idea.to_dict() for idea in _queue_state["ideas"].values() if idea.state == "Completed"]

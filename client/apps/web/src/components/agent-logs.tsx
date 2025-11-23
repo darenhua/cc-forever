@@ -262,12 +262,12 @@ export default function AgentLogs({ status }: { status: AgentStatus }) {
     return (
 
         <div className="flex-1 relative flex flex-col min-h-0">
-            <div
+            {status.is_running && <div
                 className="w-16 h-16 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer  rounded bg-gray-600 "
             >
                 <p className="text-sm text-gray-200 ml-1">#{status.current_job_id ?? 'N/A'}</p>
             </div>
-
+            }
             <Tabs defaultValue="tab1" className="flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-2">
                     <TabsList className="self-start">
