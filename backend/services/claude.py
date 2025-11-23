@@ -14,6 +14,7 @@ from services.state import start_job, add_message, finish_job, set_online, shoul
 
 BASE_URL = "http://localhost:8000"
 
+
 class JobReport(BaseModel):
     summary: str = Field(description="description of what you made and how you did it")
     entry_point: str = Field(default=f"./projects/<uuid>/index.html", description="the entry point of the project")
@@ -31,6 +32,7 @@ def fetch_from_queue():
     except requests.RequestException as e:
         print(f"Error fetching from queue: {e}")
         return None
+
 
 def mark_complete(job_id: int, summary: str):
     """Mark a job as completed via PATCH endpoint."""
@@ -53,13 +55,14 @@ def complete_job(job_id: int, summary: str):
         "created_at": datetime.now().isoformat()
     }
 
+
 async def run_once(prompt: str, job_id: str):
     project_path = f"./projects/{job_id}"
     start_job(job_id, prompt)
 
     try:
         os.makedirs(project_path, exist_ok=True)
-        
+
         server = create_sdk_mcp_server(
             name="my-tools",
             version="1.0.0",
@@ -105,7 +108,7 @@ async def run_once(prompt: str, job_id: str):
             for dir_path in projects_dir.iterdir():
                 if dir_path.is_dir() and not any(dir_path.iterdir()):
                     dir_path.rmdir()
-    
+
 
 def start():
     set_online(True)

@@ -4,6 +4,7 @@ FROM python:3.12-slim-trixie
 RUN apt-get update && apt-get install -y \
     curl \
     python3-setuptools \
+    npm \
     && apt-get clean
 
 # Install Docker CLI
@@ -19,6 +20,7 @@ COPY /backend .
 
 # Install Python dependencies
 RUN pip install -r requirements.txt
+RUN npm install -g @anthropic-ai/claude-code
 
 EXPOSE 8000
 EXPOSE 9000
