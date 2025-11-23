@@ -1,4 +1,5 @@
 import Header from "@/components/header";
+import { SheetProvider } from "@/components/sheet-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -42,11 +43,13 @@ function RootComponent() {
 				disableTransitionOnChange
 				storageKey="vite-ui-theme"
 			>
-				<div className="grid grid-rows-[auto_1fr] h-svh">
-					<Header />
-					<Outlet />
-				</div>
-				<Toaster richColors />
+				<SheetProvider>
+					<div className="grid grid-rows-[auto_1fr] h-svh">
+						<Header />
+						<Outlet />
+					</div>
+					<Toaster richColors />
+				</SheetProvider>
 			</ThemeProvider>
 			{/* <TanStackRouterDevtools position="bottom-left" /> */}
 		</>
