@@ -92,6 +92,7 @@ export type AgentStatus = {
 	conversation_log: ConversationLogEntry[];
 	ideas_queue: Idea[];
 	num_completed_ideas: number;
+	session_timestamp: string | null;
 };
 
 

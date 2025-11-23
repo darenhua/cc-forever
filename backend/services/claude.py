@@ -173,19 +173,10 @@ def generate(file_name: str, prompt: str, background_color: str):
             ],
         ),
     ]
-    tools = [
-        # types.Tool(googleSearch=types.GoogleSearch(
-        # )),
-    ]
     generate_content_config = types.GenerateContentConfig(
         response_modalities=[
             "IMAGE",
-            "TEXT",
         ],
-        image_config=types.ImageConfig(
-            image_size="1K",
-        ),
-        tools=tools,
     )
 
     file_index = 0
@@ -204,14 +195,16 @@ def generate(file_name: str, prompt: str, background_color: str):
 
             # Use global project path for saving images
             base_path = _current_project_path if _current_project_path else "."
-            output_file = f"{base_path}/assets/{file_name}_{file_index}"
+            # Extract just the filename if a full path was provided
+            base_name = os.path.basename(file_name)
+            output_file = f"{base_path}/assets/{base_name}_{file_index}"
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
             data_buffer = make_white_transparent(png_data=inline_data.data)
             file_extension = ".png"
             save_binary_file(f"{output_file}{file_extension}", data_buffer)
             # Return relative path for use in the project
-            return f"./assets/{file_name}_{file_index - 1}{file_extension}"
+            return f"./assets/{base_name}_{file_index - 1}{file_extension}"
         else:
             print(chunk.text)
 

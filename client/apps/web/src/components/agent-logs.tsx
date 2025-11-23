@@ -1,6 +1,6 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { AgentStatus, TextBlock, ToolUseBlock, ToolResultBlock, AssistantMessage, UserMessage, ResultMessage, SystemMessage } from "@/routes/second";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from 'react-markdown'
 import { Button } from "./ui/button";
 import { Loader2, Square } from "lucide-react";
@@ -83,6 +83,24 @@ function UserMessageComponent({ message }: { message: UserMessage }) {
             <div className="bg-uchu-blue/5 border border-uchu-blue/20 rounded-lg p-3 shadow-sm">
                 {message.content.map((block, idx) => {
                     if (isToolResultBlock(block)) {
+                        // Handle content that can be string, array of objects, or other types
+                        let contentDisplay: React.ReactNode;
+                        if (typeof block.content === 'string') {
+                            contentDisplay = block.content;
+                        } else if (Array.isArray(block.content)) {
+                            contentDisplay = block.content.map((item, i) => {
+                                if (typeof item === 'string') return item;
+                                if (item && typeof item === 'object' && 'text' in item) {
+                                    return <div key={i}>{item.text}</div>;
+                                }
+                                return <pre key={i} className="text-xs">{JSON.stringify(item, null, 2)}</pre>;
+                            });
+                        } else if (block.content && typeof block.content === 'object') {
+                            contentDisplay = <pre className="text-xs">{JSON.stringify(block.content, null, 2)}</pre>;
+                        } else {
+                            contentDisplay = String(block.content ?? '');
+                        }
+
                         return (
                             <div key={idx} className="space-y-1">
                                 <div className="flex items-center gap-2">
@@ -91,7 +109,7 @@ function UserMessageComponent({ message }: { message: UserMessage }) {
                                         {block.tool_use_id.slice(0, 12)}...
                                     </span>
                                 </div>
-                                <div className="text-sm text-black">{block.content}</div>
+                                <div className="text-sm text-black">{contentDisplay}</div>
                             </div>
                         );
                     }
@@ -151,6 +169,7 @@ function SystemMessageComponent({ message }: { message: SystemMessage }) {
 }
 function ClaudeCodeLogs({ status }: { status: AgentStatus }) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const queryClient = useQueryClient();
 
     // Auto-scroll to bottom when conversation_log changes
     useEffect(() => {
@@ -168,13 +187,14 @@ function ClaudeCodeLogs({ status }: { status: AgentStatus }) {
         },
         onSuccess: (data) => {
             console.log(data);
+            queryClient.invalidateQueries({ queryKey: ['agentStatus'] });
         },
         onError: (error) => {
             console.error('Failed to start agent:', error);
         }
     });
 
-    if (!status.is_running) {
+    if (!status.is_online) {
         return (
             <div className="h-full flex flex-col">
                 <div className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
@@ -262,12 +282,19 @@ export default function AgentLogs({ status }: { status: AgentStatus }) {
     return (
 
         <div className="flex-1 relative flex flex-col min-h-0">
-            {status.is_running && <div
-                className="w-16 h-16 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer  rounded bg-gray-600 "
-            >
-                <p className="text-sm text-gray-200 ml-1">#{status.current_job_id ?? 'N/A'}</p>
-            </div>
-            }
+            {status.is_running && status.session_timestamp && status.current_job_id && (
+                <div
+                    className="w-32 h-32 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer rounded bg-gray-600 bg-cover bg-center"
+                    style={{
+                        backgroundImage: `url(http://localhost:8000/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0)`,
+                        backgroundSize: '150% 120%',
+                    }}
+                >
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-1 px-2">
+                        <p className="text-xs text-gray-200">Making Game #{status.current_job_id}</p>
+                    </div>
+                </div>
+            )}
             <Tabs defaultValue="tab1" className="flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-2">
                     <TabsList className="self-start">

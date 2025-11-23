@@ -83,16 +83,16 @@ export default function AgentsSheet() {
 		<Sheet open={isOpen} onOpenChange={setIsOpen}>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle>Dashboard</SheetTitle>
+					<SheetTitle>Workers</SheetTitle>
 					<SheetDescription>
-						Your menu content goes here.
+						Claude Codes that are working on games.
 						{session !== null && (
 							<div>Current Session: {session}</div>
 						)}
 					</SheetDescription>
 				</SheetHeader>
 
-				<div className="mt-6 space-y-6">
+				<div className="mt-6 space-y-6 px-6">
 					{/* Usage Stats Section */}
 					<Card>
 						<CardHeader>
@@ -113,7 +113,7 @@ export default function AgentsSheet() {
 										value={stats.usage_stats.session}
 										label="Session"
 									/>
-									<ProgressBar
+								<ProgressBar
 										value={stats.usage_stats.weekly}
 										label="Weekly"
 									/>
@@ -129,7 +129,6 @@ export default function AgentsSheet() {
 						</CardHeader>
 						<CardContent>
 							<div className="flex items-center gap-3">
-								<div className="w-2 h-2 bg-uchu-green rounded-full" />
 								<span className="text-sm">Daren's Claude Code</span>
 							</div>
 						</CardContent>

@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "client",
@@ -16,6 +15,7 @@
       "dependencies": {
         "@hookform/resolvers": "^5.1.1",
         "@radix-ui/react-dialog": "^1.1.15",
+        "@radix-ui/react-select": "^2.2.6",
         "@radix-ui/react-tabs": "^1.1.13",
         "@tailwindcss/vite": "^4.0.15",
         "@tanstack/react-form": "^1.12.3",
