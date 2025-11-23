@@ -1,6 +1,7 @@
 # Claude Service
 # This is an infinitely running process which pulls from api to get ideas, and does them in a secure place that can be revisited and verified.
 
+from typing import Dict
 import anyio
 import os
 import time
@@ -9,7 +10,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
 
-from services.state import start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea
+from services.state import Idea, start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea
 
 
 class JobReport(BaseModel):
@@ -22,7 +23,7 @@ def fetch_from_queue():
     job_data = pop_idea()
     if job_data is None:
         return None
-    return job_data['prompt'], job_data['id']
+    return job_data
 
 
 def mark_complete(job_id: int, summary: str):
@@ -43,12 +44,16 @@ def complete_job(job_id: int, summary: str):
     }
 
 
-async def run_once(prompt: str, job_id: str):
+async def run_once(idea: Dict):
+    prompt = idea["prompt"]
+    job_id = idea["id"]
     project_path = f"./projects/{job_id}"
+    project_resources_path = project_path + "/resources"
     start_job(job_id, prompt)
 
     try:
         os.makedirs(project_path, exist_ok=True)
+        os.makedirs(project_resources_path, exist_ok=True)
 
         server = create_sdk_mcp_server(
             name="my-tools",
@@ -103,8 +108,8 @@ def start():
         while not should_stop():
             result = fetch_from_queue()
             if result:
-                prompt, job_id = result
-                summary = anyio.run(lambda: run_once(prompt, job_id))
+                job_id = result["id"]
+                summary = anyio.run(lambda: run_once(result))
                 # report back to the coordinator that the task is complete
                 complete_job(job_id, summary)
             else:
