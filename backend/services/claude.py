@@ -4,15 +4,12 @@
 import anyio
 import os
 import time
-import requests
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, Message
 
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
 
-from services.state import start_job, add_message, finish_job, set_online, should_stop
-
-BASE_URL = "http://localhost:8000"
+from services.state import start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea
 
 
 class JobReport(BaseModel):
@@ -22,29 +19,19 @@ class JobReport(BaseModel):
 
 def fetch_from_queue():
     """Fetch next job from queue. Returns (prompt, job_id) or None if empty."""
-    try:
-        response = requests.get(f"{BASE_URL}/ideas/pop")
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        job = response.json()
-        return job['prompt'], job['id']
-    except requests.RequestException as e:
-        print(f"Error fetching from queue: {e}")
+    job_data = pop_idea()
+    if job_data is None:
         return None
+    return job_data['prompt'], job_data['id']
 
 
 def mark_complete(job_id: int, summary: str):
-    """Mark a job as completed via PATCH endpoint."""
-    try:
-        response = requests.patch(
-            f"{BASE_URL}/ideas/",
-            json={"id": job_id, "state": "Completed"}
-        )
-        response.raise_for_status()
+    """Mark a job as completed."""
+    result = update_idea(job_id, state="Completed")
+    if result:
         print(f"Job {job_id} marked as completed")
-    except requests.RequestException as e:
-        print(f"Error marking job complete: {e}")
+    else:
+        print(f"Error marking job {job_id} complete: ID not found")
 
 
 def complete_job(job_id: int, summary: str):
