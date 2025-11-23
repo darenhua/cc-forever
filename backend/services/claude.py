@@ -68,12 +68,107 @@ def save_binary_file(file_name, data):
     print(f"File saved to: {file_name}")
 
 
-def generate(file_name: str, prompt: str, background_color: str):
+def generate_cover_art_image(file_name: str, prompt: str, background_color: str):
+    """Generate cover art for games - PS2 style box art."""
     client = genai.Client(
         api_key=os.getenv("GEMINI_API_KEY"),
     )
 
-    model = "gemini-3-pro-image-preview"
+    model = "gemini-2.5-flash-image"
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=f"Please make cover art inspired by PS2 style box cover art for the following game:{prompt}. DO NOT INCLUDE any actual PS2 logo or playstation imagery, only include the art for the game."),
+            ],
+        ),
+    ]
+    generate_content_config = types.GenerateContentConfig(
+        response_modalities=[
+            "IMAGE",
+        ],
+        image_config=types.ImageConfig(
+            aspect_ratio="1:1",
+        ),
+    )
+
+    file_index = 0
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    ):
+        if (
+            chunk.candidates is None
+            or chunk.candidates[0].content is None
+            or chunk.candidates[0].content.parts is None
+        ):
+            continue
+        if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+            file_name = f"{file_name}_{file_index}"
+            file_index += 1
+            inline_data = chunk.candidates[0].content.parts[0].inline_data
+            data_buffer = inline_data.data
+            file_extension = mimetypes.guess_extension(inline_data.mime_type)
+            save_binary_file(file_name, data_buffer)
+            return file_name
+
+        else:
+            print(chunk.text)
+
+def generate_banner_art_image(file_name: str, prompt: str):
+    """Generate cover art for games - PS2 style box art."""
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY"),
+    )
+
+    model = "gemini-2.5-flash-image"
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=f"Please make vertical banner art for the following game:{prompt}. This will be displayed on the sides of the gameboy screen. It should be roughly 800px tall and 200px wide."),
+            ],
+        ),
+    ]
+    generate_content_config = types.GenerateContentConfig(
+        response_modalities=[
+            "IMAGE",
+        ],
+    )
+
+    file_index = 0
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    ):
+        if (
+            chunk.candidates is None
+            or chunk.candidates[0].content is None
+            or chunk.candidates[0].content.parts is None
+        ):
+            continue
+        if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+            file_name = f"{file_name}_{file_index}"
+            file_index += 1
+            inline_data = chunk.candidates[0].content.parts[0].inline_data
+            data_buffer = inline_data.data
+            file_extension = mimetypes.guess_extension(inline_data.mime_type)
+            save_binary_file(file_name, data_buffer)
+            return file_name
+
+        else:
+            print(chunk.text)
+
+
+def generate(file_name: str, prompt: str, background_color: str):
+    """Generate images for tool use - with transparent white background."""
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY"),
+    )
+
+    model = "gemini-2.5-flash-image"
     contents = [
         types.Content(
             role="user",
@@ -83,8 +178,8 @@ def generate(file_name: str, prompt: str, background_color: str):
         ),
     ]
     tools = [
-        types.Tool(googleSearch=types.GoogleSearch(
-        )),
+        # types.Tool(googleSearch=types.GoogleSearch(
+        # )),
     ]
     generate_content_config = types.GenerateContentConfig(
         response_modalities=[
@@ -103,7 +198,6 @@ def generate(file_name: str, prompt: str, background_color: str):
         contents=contents,
         config=generate_content_config,
     ):
-        print("TESTT", chunk)
         if (
             chunk.candidates is None
             or chunk.candidates[0].content is None
@@ -125,6 +219,17 @@ def generate(file_name: str, prompt: str, background_color: str):
         else:
             print(chunk.text)
 
+async def generate_banner_art(session_timestamp: str, job_id: int, prompt: str):
+    # Create the folder if it doesn't exist
+    folder_path = f"./cartridge_arts/{session_timestamp}/{job_id}"
+    os.makedirs(folder_path, exist_ok=True)
+    return generate_banner_art_image(f"{folder_path}/banner_art.png", prompt)
+
+async def generate_cover_art(session_timestamp: str, job_id: int, prompt: str):
+    # Create the folder if it doesn't exist
+    folder_path = f"./cartridge_arts/{session_timestamp}/{job_id}"
+    os.makedirs(folder_path, exist_ok=True)
+    return generate_cover_art_image(f"{folder_path}/cover_art.png", prompt, "#ffffff")
 
 @tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
 async def use_image_generation_tool(args) -> str:
@@ -228,6 +333,11 @@ async def run_once(idea: Dict):
     job_id = idea["id"]
     session_timestamp = get_session_timestamp()
 
+    # Generate cover art and banner art in parallel
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(generate_cover_art, session_timestamp, job_id, prompt)
+        tg.start_soon(generate_banner_art, session_timestamp, job_id, prompt)
+
     # Create timestamped project path: projects/<timestamp>/<id>
     project_path = f"./projects/{session_timestamp}/{job_id}"
     project_resources_path = project_path + "/resources"
@@ -289,10 +399,10 @@ You must NEVER use cdn link for images. You ALWAYS use the local image files fou
             }
         )
 
-        instructions = f"We are using Phaser 3 to make web games. First read all the files in the resources folder. When you are done, please summarize what you made and how you did it. For certain games, you may need to generate images. Use the following instructions to generate images: {image_gen_instructions}"
+        instructions = f"We are using Phaser 3 to make web games. First read all the files in the resources folder. When you are done, please summarize what you made and how you did it. For certain games, you may need to generate images. Use the following instructions to generate images: {image_gen_instructions}. Make sure only one index.html file is present in the root of this project."
 
         async with ClaudeSDKClient(options=options) as client:
-            await client.query(f"{prompt}\n\n{instructions}")
+            await client.query(f"{prompt} using phaser.js. \n\n{instructions}")
             async for msg in client.receive_response():
                 print(msg)
                 add_message(msg)
@@ -334,7 +444,9 @@ def start():
                 job_id = result["id"]
                 summary = anyio.run(lambda: run_once(result))
                 # report back to the coordinator that the task is complete
-                complete_job(job_id, summary)
+                res = complete_job(job_id, summary)
+
+
             else:
                 # No job available, wait before polling again
                 time.sleep(5)
