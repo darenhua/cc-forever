@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import threading
@@ -6,6 +7,8 @@ import sys
 import time
 
 from idea_routes import idea_router
+from sandbox_routes import terminate_idle_sandboxes
+from sandbox_routes import sandbox_router
 from services.claude import start as claude_start
 from services.ideas import start as ideas_start
 
@@ -43,11 +46,15 @@ async def lifespan(app: FastAPI):
     # Startup: Start background threads
     global claude_thread, ideas_thread
 
+    """
     claude_thread = threading.Thread(target=claude_start, daemon=True)
     claude_thread.start()
 
     ideas_thread = threading.Thread(target=ideas_start, daemon=True)
     ideas_thread.start()
+    """
+
+    asyncio.create_task(terminate_idle_sandboxes())
 
     print("Hello from cc-forever!")
 
@@ -59,13 +66,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(idea_router)
+app.include_router(sandbox_router)
 
 
 def main():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-    app.run(debug=False)
 
 
 if __name__ == "__main__":

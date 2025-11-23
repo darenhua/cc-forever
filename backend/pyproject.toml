@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "claude-agent-sdk>=0.1.9",
+    "docker>=7.1.0",
+    "docker-py>=1.10.6",
     "fastapi>=0.121.3",
     "flask>=3.1.2",
     "requests>=2.32.5",

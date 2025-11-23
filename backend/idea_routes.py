@@ -70,6 +70,15 @@ def patch_idea(data: PatchIdeaRequest):
     return ideas[idea_id].model_dump()
 
 
+@idea_router.get("/status")
+def get_queue_status():
+    return QueueStatusResponse(
+        size=len(work_queue),
+        max_size=max_queue_size,
+        is_full=len(work_queue) >= max_queue_size
+    )
+
+
 @idea_router.get("/{id}")
 def get_idea(id: int):
     if id not in ideas:
@@ -94,12 +103,3 @@ def create_idea(data: CreateIdeaRequest):
     idea_count = idea_count + 1
 
     return Response(status_code=204)
-
-
-@idea_router.get("/status")
-def get_queue_status():
-    return QueueStatusResponse(
-        size=len(work_queue),
-        max_size=max_queue_size,
-        is_full=len(work_queue) >= max_queue_size
-    )
