@@ -6,6 +6,8 @@ import threading
 import signal
 import sys
 import time
+from dotenv import load_dotenv
+load_dotenv()
 
 from idea_routes import idea_router
 from stats_routes import stats_router
