@@ -1,4 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import Markdown from 'react-markdown'
 
 // Type definitions for conversation messages
 interface TextBlock {
@@ -92,17 +93,17 @@ function AssistantMessageComponent({ message }: { message: AssistantMessage }) {
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold text-uchu-purple bg-uchu-purple/10 px-2 py-0.5 rounded">
                     Assistant
                 </span>
-                <span className="text-xs text-gray-400">{message.model}</span>
+                <span className="text-xs text-muted-foreground">{message.model}</span>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+            <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
                 {message.content.map((block, idx) => {
                     if (isTextBlock(block)) {
                         return (
-                            <div key={idx} className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {block.text}
+                            <div key={idx} className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                <Markdown>{block.text}</Markdown>
                             </div>
                         );
                     }
@@ -110,14 +111,14 @@ function AssistantMessageComponent({ message }: { message: AssistantMessage }) {
                         return (
                             <div key={idx} className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground">
                                         {block.name}
                                     </span>
-                                    <span className="text-xs text-gray-400 font-mono">
+                                    <span className="text-xs text-muted-foreground font-mono">
                                         {block.id.slice(0, 12)}...
                                     </span>
                                 </div>
-                                <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto text-gray-600">
+                                <pre className="text-xs bg-muted p-2 rounded overflow-x-auto text-muted-foreground">
                                     {JSON.stringify(block.input, null, 2)}
                                 </pre>
                             </div>
@@ -134,27 +135,27 @@ function UserMessageComponent({ message }: { message: UserMessage }) {
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold text-uchu-blue bg-uchu-blue/10 px-2 py-0.5 rounded">
                     User
                 </span>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 shadow-sm">
+            <div className="bg-uchu-blue/5 border border-uchu-blue/20 rounded-lg p-3 shadow-sm">
                 {message.content.map((block, idx) => {
                     if (isToolResultBlock(block)) {
                         return (
                             <div key={idx} className="space-y-1">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500">Tool Result:</span>
-                                    <span className="text-xs font-mono text-gray-400">
+                                    <span className="text-xs text-muted-foreground">Tool Result:</span>
+                                    <span className="text-xs font-mono text-muted-foreground">
                                         {block.tool_use_id.slice(0, 12)}...
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-700">{block.content}</div>
+                                <div className="text-sm text-black">{block.content}</div>
                             </div>
                         );
                     }
                     return (
-                        <div key={idx} className="text-sm text-gray-700">
+                        <div key={idx} className="text-sm text-black">
                             {block.text}
                         </div>
                     );
@@ -172,39 +173,46 @@ function ResultMessageComponent({ message }: { message: ResultMessage }) {
         <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded ${message.subtype === 'success'
-                    ? 'text-green-600 bg-green-100'
-                    : 'text-red-600 bg-red-100'
+                    ? 'text-uchu-green bg-uchu-green/10'
+                    : 'text-destructive bg-destructive/10'
                     }`}>
                     Result
                 </span>
-                <span className="text-xs text-gray-400">{durationSec}s</span>
-                <span className="text-xs text-gray-400">${cost}</span>
+                <span className="text-xs text-muted-foreground">{durationSec}s</span>
+                <span className="text-xs text-muted-foreground">${cost}</span>
             </div>
             <div className={`border rounded-lg p-3 shadow-sm ${message.subtype === 'success'
-                ? 'bg-green-50 border-green-200'
-                : 'bg-red-50 border-red-200'
+                ? 'bg-uchu-green/5 border-uchu-green/20'
+                : 'bg-destructive/5 border-destructive/20'
                 }`}>
-                <div className="text-sm text-gray-700">{message.result}</div>
+                <div className="text-sm text-black">{message.result}</div>
             </div>
         </div>
     );
 }
-
 function ClaudeCodeLogs() {
     return (
-        <div className="h-full max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto">
-            {sampleMessages.map((message, idx) => {
-                switch (message.type) {
-                    case 'assistant':
-                        return <AssistantMessageComponent key={idx} message={message} />;
-                    case 'user':
-                        return <UserMessageComponent key={idx} message={message} />;
-                    case 'result':
-                        return <ResultMessageComponent key={idx} message={message} />;
-                    default:
-                        return null;
-                }
-            })}
+        <div className="h-full flex flex-col">
+            <div className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
+                {sampleMessages.map((message, idx) => {
+                    switch (message.type) {
+                        case 'assistant':
+                            return <AssistantMessageComponent key={idx} message={message} />;
+                        case 'user':
+                            return <UserMessageComponent key={idx} message={message} />;
+                        case 'result':
+                            return <ResultMessageComponent key={idx} message={message} />;
+                        default:
+                            return null;
+                    }
+                })}
+            </div>
+            <div className="mx-4 mb-4 mt-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-500">Current Task:</span>
+                    <span className="text-sm text-gray-700">Making a html page</span>
+                </div>
+            </div>
         </div>
     );
 }
