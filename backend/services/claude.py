@@ -3,8 +3,9 @@
 
 from typing import Dict
 import anyio
-import aiofiles
+import errno
 import os
+import shutil
 import time
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
@@ -151,11 +152,18 @@ async def run_once(idea: Dict):
 
         # Create building block folders and files
         for block in idea["blocks"]:
-            folder_path = project_resources_path + "/" + block["folder_name"]
-            os.makedirs(folder_path, exist_ok=True)
-            for file in block["files"]:
-                async with aiofiles.open(folder_path + "/" + file["filename"], "x") as f:
-                    await f.write(file["code"])
+            folder_name = block["folder_path"].split("/")[-1]
+            dest = project_resources_path + f"/{folder_name}"
+            #os.makedirs(dest, exist_ok=True)
+
+            try:
+                shutil.copytree(block["folder_path"], dest)
+            except OSError as err:
+                # error caused if the source was not a directory
+                if err.errno == errno.ENOTDIR:
+                    shutil.copy2(block["folder_path"], dest)
+                else:
+                    print("Error: % s" % err)
 
         server = create_sdk_mcp_server(
             name="gemini",

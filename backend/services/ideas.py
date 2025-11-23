@@ -1,10 +1,13 @@
 import random
 import time
 
-from services.blocks import snake, minesweeper, breakout
-from services.state import BuildingBlock, Idea, list_all_ideas, should_stop, create_idea, get_queue_size
+from services.blocks import snake, minesweeper, breakout, stacker, platformer
+from services.resources.modifiers import modifiers
+from services.state import BuildingBlock, list_all_ideas, should_stop, create_idea, get_queue_size
 
 MAX_QUEUE_SIZE = 3
+
+depth = 0
 
 
 def submit_to_queue(idea: tuple[str, list[BuildingBlock]]) -> bool:
@@ -14,31 +17,19 @@ def submit_to_queue(idea: tuple[str, list[BuildingBlock]]) -> bool:
 
 
 def propose_idea() -> tuple[str, list[BuildingBlock]]:
-    completed_ideas = [idea for idea in list_all_ideas() if idea["state"] == "Completed"]
+    ideas: list[tuple[str, list[BuildingBlock]]] = [
+        ("make me a snake game", [snake]),
+        ("make me a minesweeper game", [minesweeper]),
+        ("make me a breakout game", [breakout]),
+        ("make me a block stacking game", [stacker]),
+        ("make me a platformer game", [platformer]),
+        ]
 
-    if len(completed_ideas) <= 3:
-        ideas: list[tuple[str, list[BuildingBlock]]] = [
-            ("make me a snake game using phaser.js", [snake]),
-            ("make me a minesweeper game using phaser.js", [minesweeper]),
-            ("make me a breakout game using phaser.js", [breakout]),
-            ]
+    chosen = random.choice(ideas)
+    modifier = random.choice(modifiers)
+    newPrompt = chosen[0] + " that also has " + modifier + " aspects using phaser.js"
 
-        chosen = random.choice(ideas)
-        # api req to queue here
-        return chosen
-
-    block_one = random.choice(completed_ideas)
-    block_two = random.choice(completed_ideas)
-
-    prompt = f"""Combine the following two prompts below in brackets to create
-    one game in phaser.js that is a blend of both:
-    {{ {block_one["prompt"]} }}
-    {{ {block_two["prompt"]} }}
-    """
-
-    combined_blocks = block_one["blocks"] + block_two["blocks"]
-
-    return (prompt, combined_blocks)
+    return (newPrompt, chosen[1])
 
 
 def start():
