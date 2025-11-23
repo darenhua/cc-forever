@@ -151,7 +151,7 @@ def make_white_transparent(png_data: bytes) -> bytes:
     new_data = []
     for item in data:
         # Check if pixel is white (255,255,255)
-        if item[:3] == (255, 255, 255):
+        if item[0] >= 240 and item[1] >= 240 and item[2] >= 240:
             # Make transparent (keep RGB values but set alpha to 0)
             new_data.append((255, 255, 255, 0))
         else:
@@ -197,7 +197,6 @@ async def run_once(idea: Dict):
         for block in idea["blocks"]:
             folder_name = block["folder_path"].split("/")[-1]
             dest = project_resources_path + f"/{folder_name}"
-            #os.makedirs(dest, exist_ok=True)
 
             try:
                 shutil.copytree(block["folder_path"], dest)
