@@ -15,12 +15,12 @@ export default function Header() {
 					{links.map(({ to, label }) => {
 						return (
 							<Link key={to} to={to}>
-								{label}
+								<p className="text-lg font-bold">{label}</p>
 							</Link>
 						);
 					})}
 				</nav>
-					<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2">
 					<Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
 						<Menu className="h-[1.2rem] w-[1.2rem]" />
 						<span className="sr-only">Open menu</span>

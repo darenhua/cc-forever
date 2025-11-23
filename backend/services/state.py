@@ -55,10 +55,24 @@ def start_job(job_id: str, prompt: str):
 
 def add_message(msg):
     with _lock:
+        # Convert SDK message objects to serializable dicts
+        if hasattr(msg, 'model_dump'):
+            # Pydantic v2 models (Claude SDK uses these)
+            content = msg.model_dump()
+        elif hasattr(msg, 'dict'):
+            # Pydantic v1 fallback
+            content = msg.dict()
+        elif hasattr(msg, '__dict__'):
+            # Regular objects
+            content = vars(msg)
+        else:
+            # Already serializable (str, dict, list, etc.)
+            content = msg
+
         _state["conversation_log"].append({
             "timestamp": datetime.now().isoformat(),
             "type": type(msg).__name__,
-            "content": str(msg)
+            "content": content
         })
 
 

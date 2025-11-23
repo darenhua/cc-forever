@@ -1,81 +1,22 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import type { AgentStatus, TextBlock, ToolUseBlock, ToolResultBlock, AssistantMessage, UserMessage, ResultMessage, SystemMessage } from "@/routes/second";
+import { useMutation } from "@tanstack/react-query";
 import Markdown from 'react-markdown'
+import { Button } from "./ui/button";
+import { Loader2, Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "./ui/dialog";
 
-// Type definitions for conversation messages
-interface TextBlock {
-    text: string;
-}
 
-interface ToolUseBlock {
-    id: string;
-    name: string;
-    input: Record<string, unknown>;
-}
-
-interface ToolResultBlock {
-    tool_use_id: string;
-    content: string;
-    is_error: boolean | null;
-}
-
-interface AssistantMessage {
-    type: 'assistant';
-    content: (TextBlock | ToolUseBlock)[];
-    model: string;
-}
-
-interface UserMessage {
-    type: 'user';
-    content: (ToolResultBlock | { text: string })[];
-}
-
-interface ResultMessage {
-    type: 'result';
-    subtype: string;
-    duration_ms: number;
-    total_cost_usd: number;
-    result: string;
-}
-
-type ConversationMessage = AssistantMessage | UserMessage | ResultMessage;
 
 // Sample data based on the provided example
-const sampleMessages: ConversationMessage[] = [
-    {
-        type: 'assistant',
-        content: [{
-            id: 'toolu_01TWibWBDoUY6Xh9wgp2Ekgm',
-            name: 'StructuredOutput',
-            input: {
-                summary: 'I created a complete registration page website with HTML, CSS, and JavaScript. The page features:\n\n**HTML Structure:**\n- A modern registration form with fields for full name, email, phone number, password, and password confirmation\n- Terms and conditions checkbox\n- Success modal that appears after successful registration\n\n**CSS Styling:**\n- Beautiful purple gradient background\n- Clean white card design with rounded corners and shadow\n- Responsive layout that works on mobile devices\n- Custom styled form inputs with focus and validation states (error/success)\n- Password strength indicator bar\n- Loading spinner animation for the submit button\n- Smooth animations for the success modal\n\n**JavaScript Functionality:**\n- Real-time form validation on blur for all fields\n- Email format validation using regex\n- Phone number validation (optional field)\n- Password strength checker that shows Weak/Medium/Strong\n- Password visibility toggle\n- Confirm password matching validation\n- Loading state simulation (2 seconds) on form submission\n- Success modal with multiple close options (button, click outside, Escape key)\n- Form reset after successful submission\n\nThe registration page is fully functional and provides a great user experience with visual feedback for all interactions.',
-                entry_point: './projects/2/index.html'
-            }
-        }],
-        model: 'claude-sonnet-4-5-20250929'
-    },
-    {
-        type: 'user',
-        content: [{
-            tool_use_id: 'toolu_01TWibWBDoUY6Xh9wgp2Ekgm',
-            content: 'Structured output provided successfully',
-            is_error: null
-        }]
-    },
-    {
-        type: 'assistant',
-        content: [{
-            text: "I've created a complete registration page website for you! Here's what I built:\n\n## Summary\n\n**HTML Structure:**\n- Registration form with fields for full name, email, phone, password, and confirm password\n- Terms and conditions checkbox\n- Success modal popup\n\n**CSS Styling:**\n- Modern purple gradient background\n- Clean white card with shadows and rounded corners\n- Responsive design for mobile devices\n- Visual feedback for form validation (green for success, red for errors)\n- Password strength indicator bar\n- Loading spinner animation\n- Smooth modal animations\n\n**JavaScript Features:**\n- Real-time validation on each field\n- Email format validation\n- Password strength meter (Weak/Medium/Strong)\n- Password visibility toggle\n- Passwords match checking\n- 2-second loading simulation on submit\n- Success modal with multiple close options\n- Form reset after successful registration\n\nThe page is fully functional and provides a polished user experience with instant feedback on all interactions!"
-        }],
-        model: 'claude-sonnet-4-5-20250929'
-    },
-    {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 120225,
-        total_cost_usd: 0.24706390000000003,
-        result: "I've created a complete registration page website for you!"
-    }
-];
 
 function isTextBlock(block: TextBlock | ToolUseBlock): block is TextBlock {
     return 'text' in block;
@@ -190,18 +131,100 @@ function ResultMessageComponent({ message }: { message: ResultMessage }) {
         </div>
     );
 }
-function ClaudeCodeLogs() {
+
+function SystemMessageComponent({ message }: { message: SystemMessage }) {
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    System
+                </span>
+                <span className="text-xs text-muted-foreground">{message.subtype}</span>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm">
+                <pre className="text-xs text-muted-foreground overflow-x-auto">
+                    {JSON.stringify(message.data, null, 2)}
+                </pre>
+            </div>
+        </div>
+    );
+}
+function ClaudeCodeLogs({ status }: { status: AgentStatus }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom when conversation_log changes
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [status.conversation_log]);
+
+    const mutation = useMutation({
+        mutationFn: async () => {
+            const response = await fetch('http://localhost:8000/agent/start', {
+                method: 'POST',
+            });
+            return response.json();
+        },
+        onSuccess: (data) => {
+            console.log(data);
+        },
+        onError: (error) => {
+            console.error('Failed to start agent:', error);
+        }
+    });
+
+    if (!status.is_running) {
+        return (
+            <div className="h-full flex flex-col">
+                <div className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
+                    <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+                        <div className="text-sm text-muted-foreground">No messages yet</div>
+                        <Button
+                            disabled={mutation.isPending}
+                            onClick={() => mutation.mutate()}
+                            className="bg-uchu-green hover:bg-uchu-green/80"
+                        >
+                            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Agent'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    console.log(status);
+    if (status.conversation_log.length === 0) {
+        return (
+            <div className="h-full flex flex-col">
+                <div className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
+                    <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                        <div className="text-sm text-muted-foreground">No messages yet</div>
+                        <div className="text-xs text-muted-foreground">Waiting for agent activity...</div>
+                    </div>
+                </div>
+                <div className="mx-4 mb-4 mt-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-500">Current Task:</span>
+                        <span className="text-sm text-gray-700">{status.current_prompt ?? 'No task yet'}</span>
+                    </div>
+                </div>
+
+            </div>
+        );
+    }
     return (
         <div className="h-full flex flex-col">
-            <div className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
-                {sampleMessages.map((message, idx) => {
+            <div ref={scrollRef} className="flex-1 max-w-[800px] overflow-y-scroll space-y-4 p-2 mx-auto w-full">
+                {status.conversation_log.map((message, idx) => {
                     switch (message.type) {
-                        case 'assistant':
-                            return <AssistantMessageComponent key={idx} message={message} />;
-                        case 'user':
-                            return <UserMessageComponent key={idx} message={message} />;
-                        case 'result':
-                            return <ResultMessageComponent key={idx} message={message} />;
+                        case 'AssistantMessage':
+                            return <AssistantMessageComponent key={idx} message={message.content as AssistantMessage} />;
+                        case 'UserMessage':
+                            return <UserMessageComponent key={idx} message={message.content as UserMessage} />;
+                        case 'ResultMessage':
+                            return <ResultMessageComponent key={idx} message={message.content as ResultMessage} />;
+                        case 'SystemMessage':
+                            return <SystemMessageComponent key={idx} message={message.content as SystemMessage} />;
                         default:
                             return null;
                     }
@@ -210,24 +233,90 @@ function ClaudeCodeLogs() {
             <div className="mx-4 mb-4 mt-2 bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-gray-500">Current Task:</span>
-                    <span className="text-sm text-gray-700">Making a html page</span>
+                    <span className="text-sm text-gray-700">{status.current_prompt}</span>
                 </div>
             </div>
         </div>
     );
 }
 
-export default function AgentLogs() {
+export default function AgentLogs({ status }: { status: AgentStatus }) {
+    const [showStopDialog, setShowStopDialog] = useState(false);
+
+    const stopMutation = useMutation({
+        mutationFn: async () => {
+            const response = await fetch('http://localhost:8000/agent/stop', {
+                method: 'POST',
+            });
+            return response.json();
+        },
+        onSuccess: (data) => {
+            console.log('Agent stopped:', data);
+            setShowStopDialog(false);
+        },
+        onError: (error) => {
+            console.error('Failed to stop agent:', error);
+        }
+    });
+
     return (
-        <div className="flex-1 flex flex-col min-h-0">
+
+        <div className="flex-1 relative flex flex-col min-h-0">
+            <div
+                className="w-16 h-16 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer  rounded bg-gray-600 "
+            >
+                <p className="text-sm text-gray-200 ml-1">#{status.current_job_id ?? 'N/A'}</p>
+            </div>
+
             <Tabs defaultValue="tab1" className="flex-1 flex flex-col min-h-0">
-                <TabsList className="self-start">
-                    <TabsTrigger value="tab1">Daren's Claude Code</TabsTrigger>
-                </TabsList>
+                <div className="flex items-center gap-2">
+                    <TabsList className="self-start">
+                        <TabsTrigger value="tab1">Daren's Claude Code</TabsTrigger>
+                    </TabsList>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={stopMutation.isPending || !status.is_running}
+                        onClick={() => setShowStopDialog(true)}
+                    >
+                        {stopMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Square className="w-4 h-4" />
+                        )}
+                        <span className="ml-1">Stop</span>
+                    </Button>
+                </div>
                 <TabsContent value="tab1" className="flex-1 min-h-0 bg-gray-100 rounded-lg p-2 overflow-hidden">
-                    <ClaudeCodeLogs />
+                    <ClaudeCodeLogs status={status} />
                 </TabsContent>
             </Tabs>
+
+            <Dialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Stop Agent</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to stop the agent? This will terminate the current task.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowStopDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => stopMutation.mutate()}
+                            disabled={stopMutation.isPending}
+                        >
+                            {stopMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            ) : null}
+                            Stop Agent
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
