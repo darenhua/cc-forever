@@ -7,6 +7,7 @@ import signal
 import sys
 import time
 from dotenv import load_dotenv
+from pathlib import Path
 load_dotenv()
 
 from idea_routes import idea_router
@@ -71,6 +72,11 @@ app.include_router(stats_router)
 # Mount static files for projects
 app.mount("/projects", StaticFiles(directory="projects", html=True), name="projects")
 
+# Mount static files for cartridge arts
+app.mount("/cartridge_arts", StaticFiles(directory="cartridge_arts"), name="cartridge_arts")
+
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
 
 @app.get("/agent/status")
 def agent_status():
@@ -103,6 +109,58 @@ def stop_agent():
 @app.get("/finished-projects")
 def get_ideas_map():
     return get_all_ideas()
+
+
+@app.get("/projects-list")
+def list_projects():
+    """List all timestamp directories and their numbered subdirectories under projects/"""
+    projects_dir = Path("projects")
+    result = []
+
+    if not projects_dir.exists():
+        return result
+
+    sorted_dirs = sorted(projects_dir.iterdir(), reverse=True)
+
+    for i, timestamp_dir in enumerate(sorted_dirs):
+        if timestamp_dir.is_dir():
+            subdirs = []
+            for subdir in sorted(timestamp_dir.iterdir()):
+                if subdir.is_dir():
+                    subdirs.append(subdir.name)
+
+            num_games = len(subdirs)
+            result.append({
+                "name": f"Game Pack #{len(sorted_dirs) - i} ({num_games} games)",
+                "timestamp": timestamp_dir.name,
+                "games": subdirs
+            })
+
+    return result
+
+
+@app.get("/get-entry-point/{timestamp}/{job_id}")
+def get_entry_point(timestamp: str, job_id: int):
+    """Find the index.html entry point for a project, searching recursively if needed"""
+    project_dir = Path("projects") / timestamp / str(job_id)
+
+    if not project_dir.exists():
+        return {"error": "Project not found", "path": None}
+
+    # First check the root directory
+    root_index = project_dir / "index.html"
+    if root_index.exists():
+        return {"path": f"/projects/{timestamp}/{job_id}/index.html"}
+
+    # Search recursively for index.html
+    index_files = list(project_dir.rglob("index.html"))
+
+    if index_files:
+        # Return the first one found (could be improved to prioritize certain paths)
+        relative_path = index_files[0].relative_to(Path("projects"))
+        return {"path": f"/projects/{relative_path}"}
+
+    return {"error": "No index.html found", "path": None}
 
 
 def main():

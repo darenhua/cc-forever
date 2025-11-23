@@ -1,7 +1,7 @@
 import random
 import time
 
-from services.blocks import snake, minesweeper, breakout, stacker, platformer
+from services.blocks import adventure, dungeon, snake, minesweeper, breakout, stacker, platformer
 from services.resources.modifiers import modifiers
 from services.state import BuildingBlock, list_all_ideas, should_stop, create_idea, get_queue_size
 
@@ -23,11 +23,13 @@ def propose_idea() -> tuple[str, list[BuildingBlock]]:
         ("make me a breakout game", [breakout]),
         ("make me a block stacking game", [stacker]),
         ("make me a platformer game", [platformer]),
+        ("make me an adventure game", [adventure]),
+        ("make me a dungeon crawler game", [dungeon]),
         ]
 
     chosen = random.choice(ideas)
     modifier = random.choice(modifiers)
-    newPrompt = chosen[0] + " that also has " + modifier + " aspects using phaser.js"
+    newPrompt = chosen[0] + " that also has " + modifier + " aspects"
 
     return (newPrompt, chosen[1])
 
