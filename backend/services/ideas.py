@@ -1,36 +1,15 @@
 import random
 import time
-import requests
 
-from services.state import should_stop
+from services.state import should_stop, create_idea, get_queue_size
 
-BASE_URL = "http://localhost:8000"
 MAX_QUEUE_SIZE = 3
-
-
-def get_queue_size() -> int:
-    """Get current queue size from status endpoint."""
-    try:
-        response = requests.get(f"{BASE_URL}/ideas/status/")
-        response.raise_for_status()
-        return response.json()["size"]
-    except requests.RequestException as e:
-        print(f"Error getting queue size: {e}")
-        return 0
 
 
 def submit_to_queue(prompt: str) -> bool:
     """Submit an idea to the queue."""
-    try:
-        response = requests.post(
-            f"{BASE_URL}/ideas/",
-            json={"prompt": prompt, "repos": []}
-        )
-        response.raise_for_status()
-        return True
-    except requests.RequestException as e:
-        print(f"Error submitting to queue: {e}")
-        return False
+    idea_id = create_idea(prompt=prompt, repos=[])
+    return idea_id is not None
 
 
 def propose_idea() -> str:
