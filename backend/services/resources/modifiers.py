@@ -1,11 +1,19 @@
 
 modifiers = [
-        "Platformer",
         "Crafting",
         "Gambling",
         "Survival",
         "Inventory",
         "Combat",
         "Open World",
-        "Enemies"
+        "Enemies",
+        "Racing",
+        "Shooter",
+        "Puzzle",
+        "Black Jack",
+        "Tower Defense",
+        "Bullet Hell",
+        "Multiplayer",
+        "Turn-based",
+        "Card game"
         ]
