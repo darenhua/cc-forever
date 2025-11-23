@@ -5,6 +5,8 @@ from threading import Lock
 from datetime import datetime
 from typing import Optional, List, Dict
 
+from pydantic import BaseModel
+
 _lock = Lock()
 
 _state = {
@@ -77,28 +79,28 @@ def get_state():
             "started_at": _state["started_at"],
             "message_count": len(_state["conversation_log"]),
             "conversation_log": list(_state["conversation_log"]),
-            "ideas_queue": [_idea.to_dict() for _idea in _queue_state["work_queue"]],
+            "ideas_queue": [_idea.model_dump() for _idea in _queue_state["work_queue"]],
             "num_completed_ideas": len([idea for idea in _queue_state["ideas"].values() if idea.state == "Completed"]),
         }
 
 
 # Queue-related data structures
-class Idea:
-    def __init__(self, id: int, prompt: str, repos: List[str], state: str = "NotStarted"):
-        self.id = id
-        self.prompt = prompt
-        self.repos = repos
-        self.state = state
-        self.created_at = datetime.now().isoformat()
+class CodeFile(BaseModel):
+    filename: str
+    code: str
 
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "prompt": self.prompt,
-            "repos": self.repos,
-            "state": self.state,
-            "created_at": self.created_at
-        }
+
+class BuildingBlock(BaseModel):
+    folder_name: str
+    files: List[CodeFile]
+
+
+class Idea(BaseModel):
+    id: int
+    prompt: str
+    blocks: list[BuildingBlock]
+    state: str
+    created_at: str
 
 
 _queue_state = {
@@ -109,7 +111,7 @@ _queue_state = {
 }
 
 
-def create_idea(prompt: str, repos: List[str]) -> Optional[int]:
+def create_idea(prompt: str, blocks: list[BuildingBlock]) -> Optional[int]:
     """Create a new idea and add to queue. Returns idea ID or None if queue is full."""
     with _lock:
         if len(_queue_state["work_queue"]) >= _queue_state["max_queue_size"]:
@@ -118,7 +120,11 @@ def create_idea(prompt: str, repos: List[str]) -> Optional[int]:
         _queue_state["idea_count"] += 1
         idea_id = _queue_state["idea_count"]
 
-        idea = Idea(id=idea_id, prompt=prompt, repos=repos)
+        idea = Idea(id=idea_id,
+                    prompt=prompt,
+                    blocks=blocks,
+                    created_at=datetime.now().isoformat(),
+                    state="NotStarted")
         _queue_state["ideas"][idea_id] = idea
         _queue_state["work_queue"].append(idea)
 
@@ -132,24 +138,30 @@ def pop_idea() -> Optional[Dict]:
             return None
 
         idea = _queue_state["work_queue"].pop(0)
-        return idea.to_dict()
+        return idea.model_dump()
 
 
 def get_idea(idea_id: int) -> Optional[Dict]:
     """Get a specific idea by ID."""
     with _lock:
         idea = _queue_state["ideas"].get(idea_id)
-        return idea.to_dict() if idea else None
+        return idea.model_dump() if idea else None
 
 
 def list_ideas() -> List[Dict]:
     """List all ideas currently in the queue."""
     with _lock:
-        return [idea.to_dict() for idea in _queue_state["work_queue"]]
+        return [idea.model_dump() for idea in _queue_state["work_queue"]]
+
+
+def list_all_ideas() -> List[Dict]:
+    """List all ideas created"""
+    with _lock:
+        return [idea.model_dump() for idea in _queue_state["ideas"].values()]
 
 
 def update_idea(idea_id: int, prompt: Optional[str] = None,
-                repos: Optional[List[str]] = None, state: Optional[str] = None) -> Optional[Dict]:
+                blocks: Optional[list[BuildingBlock]] = None, state: Optional[str] = None) -> Optional[Dict]:
     """Update an existing idea."""
     with _lock:
         if idea_id not in _queue_state["ideas"]:
@@ -158,12 +170,12 @@ def update_idea(idea_id: int, prompt: Optional[str] = None,
         idea = _queue_state["ideas"][idea_id]
         if prompt is not None:
             idea.prompt = prompt
-        if repos is not None:
-            idea.repos = repos
+        if blocks is not None:
+            idea.blocks = blocks
         if state is not None:
             idea.state = state
 
-        return idea.to_dict()
+        return idea.model_dump()
 
 
 def get_queue_status() -> Dict:

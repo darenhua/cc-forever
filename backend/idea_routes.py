@@ -4,10 +4,12 @@ from pydantic import BaseModel
 
 # Import state functions
 from services.state import (
+    BuildingBlock,
     create_idea as state_create_idea,
     pop_idea as state_pop_idea,
     get_idea as state_get_idea,
     list_ideas as state_list_ideas,
+    list_all_ideas as state_list_all_ideas,
     update_idea as state_update_idea,
     get_queue_status as state_get_queue_status
 )
@@ -19,19 +21,19 @@ idea_router = APIRouter(prefix="/ideas", tags=["ideas"])
 class Idea(BaseModel):
     id: int
     prompt: str
-    repos: list[str]
+    blocks: list[BuildingBlock]
     state: str
 
 
 class CreateIdeaRequest(BaseModel):
     prompt: str
-    repos: list[str]
+    blocks: list[BuildingBlock]
 
 
 class PatchIdeaRequest(BaseModel):
     id: int
     prompt: str | None = None
-    repos: list[str] | None = None
+    blocks: list[BuildingBlock] | None = None
     state: str | None = None
 
 
@@ -54,12 +56,17 @@ def list_ideas():
     return state_list_ideas()
 
 
+@idea_router.get("/all")
+def list_all_ideas():
+    return state_list_all_ideas()
+
+
 @idea_router.patch("/")
 def patch_idea(data: PatchIdeaRequest):
     result = state_update_idea(
         idea_id=data.id,
         prompt=data.prompt,
-        repos=data.repos,
+        blocks=data.blocks,
         state=data.state
     )
     if result is None:
@@ -89,7 +96,7 @@ def get_idea(id: int):
 # def create_idea(data: CreateIdeaRequest):
 #     idea_id = state_create_idea(
 #         prompt=data.prompt,
-#         repos=data.repos
+#         blocks=data.blocks
 #     )
 #     if idea_id is None:
 #         raise HTTPException(status_code=429, detail="Queue is full")

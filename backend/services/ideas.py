@@ -1,42 +1,45 @@
 import random
 import time
 
-from services.state import should_stop, create_idea, get_queue_size
+from services.blocks import snake, minesweeper, breakout
+from services.state import BuildingBlock, Idea, list_all_ideas, should_stop, create_idea, get_queue_size
 
 MAX_QUEUE_SIZE = 3
 
 
-def submit_to_queue(prompt: str) -> bool:
+def submit_to_queue(idea: tuple[str, list[BuildingBlock]]) -> bool:
     """Submit an idea to the queue."""
-    idea_id = create_idea(prompt=prompt, repos=[])
+    idea_id = create_idea(idea[0], idea[1])
     return idea_id is not None
 
 
-def propose_idea() -> str:
-    ideas =  [
-        "make me a todo list website using html, css, js",
-        "make me a calculator website using html, css, js",
-        "make me a weather website using html, css, js",
-        "make me a portfolio website using html, css, js",
-        "make me a blog website using html, css, js",
-        "make me a contact form website using html, css, js",
-        "make me a login page website using html, css, js",
-        "make me a registration page website using html, css, js",
-        "make me a password reset page website using html, css, js",
-        "make me a dashboard website using html, css, js",
-        "make me a admin dashboard website using html, css, js",
-        "make me a admin login page website using html, css, js",
-        "make me a admin registration page website using html, css, js",
-        "make me a admin password reset page website using html, css, js",
-        "make me a admin dashboard website using html, css, js",
-        "make me a admin login page website using html, css, js",
-        "make me a admin registration page website using html, css, js",
-        "make me a admin password reset page website using html, css, js",
-    ]
+def propose_idea() -> tuple[str, list[BuildingBlock]]:
+    completed_ideas = [idea for idea in list_all_ideas() if idea["state"] == "Completed"]
 
-    chosen = random.choice(ideas)
-    # api req to queue here
-    return chosen
+    if len(completed_ideas) <= 3:
+        ideas: list[tuple[str, list[BuildingBlock]]] = [
+            ("make me a snake game using phaser.js", [snake]),
+            ("make me a minesweeper game using phaser.js", [minesweeper]),
+            ("make me a breakout game using phaser.js", [breakout]),
+            ]
+
+        chosen = random.choice(ideas)
+        # api req to queue here
+        return chosen
+
+    block_one = random.choice(completed_ideas)
+    block_two = random.choice(completed_ideas)
+
+    prompt = f"""Combine the following two prompts below in brackets to create
+    one game in phaser.js that is a blend of both:
+    {{ {block_one["prompt"]} }}
+    {{ {block_two["prompt"]} }}
+    """
+
+    combined_blocks = block_one["blocks"] + block_two["blocks"]
+
+    return (prompt, combined_blocks)
+
 
 def start():
     while not should_stop():
