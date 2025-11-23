@@ -7,7 +7,7 @@ import errno
 import os
 import shutil
 import time
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, Message
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
@@ -45,6 +45,84 @@ def complete_job(job_id: int, summary: str):
         "created_at": datetime.now().isoformat()
     }
 
+import base64
+import mimetypes
+import os
+from google import genai
+from google.genai import types
+
+# Global to track current project path for image generation
+_current_project_path = None
+
+
+def save_binary_file(file_name, data):
+    f = open(file_name, "wb")
+    f.write(data)
+    f.close()
+    print(f"File saved to: {file_name}")
+
+
+def generate(file_name: str, prompt: str, background_color: str):
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY"),
+    )
+
+    model = "gemini-3-pro-image-preview"
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=f"When generating images, the background color MUST be {background_color}. {prompt}"),
+            ],
+        ),
+    ]
+    tools = [
+        types.Tool(googleSearch=types.GoogleSearch(
+        )),
+    ]
+    generate_content_config = types.GenerateContentConfig(
+        response_modalities=[
+            "IMAGE",
+            "TEXT",
+        ],
+        image_config=types.ImageConfig(
+            image_size="1K",
+        ),
+        tools=tools,
+    )
+
+    file_index = 0
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    ):
+        print("TESTT", chunk)
+        if (
+            chunk.candidates is None
+            or chunk.candidates[0].content is None
+            or chunk.candidates[0].content.parts is None
+        ):
+            continue
+        if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+            # Use global project path for saving images
+            base_path = _current_project_path if _current_project_path else "."
+            output_file = f"{base_path}/assets/{file_name}_{file_index}"
+            file_index += 1
+            inline_data = chunk.candidates[0].content.parts[0].inline_data
+            data_buffer = inline_data.data
+            file_extension = ".png"
+            save_binary_file(f"{output_file}{file_extension}", data_buffer)
+            # Return relative path for use in the project
+            return f"./assets/{file_name}_{file_index - 1}{file_extension}"
+        else:
+            print(chunk.text)
+
+@tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
+async def use_image_generation_tool(args) -> str:
+    return generate(args["file_name"], args["prompt"], "#ffffff")
+
+
 
 async def run_once(idea: Dict):
     prompt = idea["prompt"]
@@ -62,9 +140,14 @@ async def run_once(idea: Dict):
 
     start_job(job_id, prompt)
 
+    # Set global project path for image generation tool
+    global _current_project_path
+    _current_project_path = project_path
+
     try:
         os.makedirs(project_path, exist_ok=True)
         os.makedirs(project_resources_path, exist_ok=True)
+        os.makedirs(project_path + "/assets", exist_ok=True)
 
         # Create building block folders and files
         for block in idea["blocks"]:
@@ -82,14 +165,24 @@ async def run_once(idea: Dict):
                     print("Error: % s" % err)
 
         server = create_sdk_mcp_server(
-            name="my-tools",
+            name="gemini",
             version="1.0.0",
-            tools=[]
+            tools=[use_image_generation_tool]
         )
 
+        image_gen_instructions = f"""
+Here is common code that you may encounter for loading images in Phaser 3:
+```javascript
+this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
+this.load.image('food', 'assets/games/snake/food.png');
+this.load.image('body', 'assets/games/snake/body.png');
+```
+You must NEVER use cdn link for images. You ALWAYS use the local image files found in the assets folder. Initially, there will be no images in the assets folder. You must generate them using the use_image_generation_tool, and upon getting the image url from this tool, you must update the phaser code to use the new images. Think about different assets that you need to generate for the game and prompt the use_image_generation_tool wisely to generate the best images for the game. You may be asked to generate images in a certain STYLE, and in this case you should update the image generation instructions to generate images in that style. Please think carefully about the sizing of the assets when controlling them using setDisplaySize() especially given that the image assets have quite high resolution (1024 x 1024 pixels for each image). 
+        """
+
         options = ClaudeAgentOptions(
-            mcp_servers={"tools": server},
-            allowed_tools=["Read", "Write", "Bash"],
+            mcp_servers={"gemini": server},
+            allowed_tools=["Read", "Write", "Bash", "mcp__gemini__use_image_generation_tool"],
             permission_mode='acceptEdits',
             cwd=project_path,
             output_format={
@@ -98,7 +191,7 @@ async def run_once(idea: Dict):
             }
         )
 
-        instructions = "First read all the files in the resources folder. When you are done, please summarize what you made and how you did it."
+        instructions = f"We are using Phaser 3 to make web games. First read all the files in the resources folder. When you are done, please summarize what you made and how you did it. For certain games, you may need to generate images. Use the following instructions to generate images: {image_gen_instructions}"
 
         async with ClaudeSDKClient(options=options) as client:
             await client.query(f"{prompt}\n\n{instructions}")
