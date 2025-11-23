@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiofiles>=25.1.0",
+    "bs4>=0.0.2",
     "claude-agent-sdk>=0.1.9",
     "docker>=7.1.0",
     "docker-py>=1.10.6",
