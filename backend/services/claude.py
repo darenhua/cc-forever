@@ -7,6 +7,7 @@ import errno
 import os
 import shutil
 import time
+from PIL import Image
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
 from pydantic import BaseModel, Field, ValidationError
@@ -48,6 +49,7 @@ def complete_job(job_id: int, summary: str):
 import base64
 import mimetypes
 import os
+import io
 from google import genai
 from google.genai import types
 
@@ -105,12 +107,13 @@ def generate(file_name: str, prompt: str, background_color: str):
         ):
             continue
         if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
+
             # Use global project path for saving images
             base_path = _current_project_path if _current_project_path else "."
             output_file = f"{base_path}/assets/{file_name}_{file_index}"
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
-            data_buffer = inline_data.data
+            data_buffer = make_white_transparent(png_data=inline_data.data)
             file_extension = ".png"
             save_binary_file(f"{output_file}{file_extension}", data_buffer)
             # Return relative path for use in the project
@@ -118,10 +121,51 @@ def generate(file_name: str, prompt: str, background_color: str):
         else:
             print(chunk.text)
 
+
 @tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
 async def use_image_generation_tool(args) -> str:
     return generate(args["file_name"], args["prompt"], "#ffffff")
 
+
+def make_white_transparent(png_data: bytes) -> bytes:
+    """
+    Takes PNG data as bytes and makes all white pixels (255,255,255) transparent.
+
+    Args:
+        png_data: PNG image data as bytes
+
+    Returns:
+        Modified PNG data as bytes with white pixels made transparent
+    """
+    # Open image from bytes
+    image = Image.open(io.BytesIO(png_data))
+
+    # Convert to RGBA if not already (adds alpha channel)
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+
+    # Get image data
+    data = image.getdata()
+
+    # Create new data where white pixels become transparent
+    new_data = []
+    for item in data:
+        # Check if pixel is white (255,255,255)
+        if item[:3] == (255, 255, 255):
+            # Make transparent (keep RGB values but set alpha to 0)
+            new_data.append((255, 255, 255, 0))
+        else:
+            # Keep original pixel
+            new_data.append(item)
+
+    # Update image data
+    image.putdata(new_data)
+
+    # Convert back to bytes
+    output_buffer = io.BytesIO()
+    image.save(output_buffer, format='PNG')
+
+    return output_buffer.getvalue()
 
 
 async def run_once(idea: Dict):
