@@ -3,6 +3,8 @@ from pydantic import BaseModel
 import subprocess
 import json
 import httpx
+import platform
+from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
@@ -36,6 +38,21 @@ current_session: dict = {
 
 
 def get_claude_token() -> str:
+    """Retrieves Claude Code OAuth token from system credentials storage"""
+    system = platform.system()
+
+    if system == "Darwin":
+        return _get_token_macos()
+    elif system == "Linux":
+        return _get_token_linux()
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unsupported platform: {system}. Only macOS and Linux are supported."
+        )
+
+
+def _get_token_macos() -> str:
     """Retrieves Claude Code OAuth token from macOS Keychain"""
     try:
         result = subprocess.run(
@@ -58,6 +75,38 @@ def get_claude_token() -> str:
         raise HTTPException(status_code=500, detail=f"Failed to parse credentials: {str(e)}")
     except KeyError as e:
         raise HTTPException(status_code=500, detail=f"Invalid credentials format: missing {str(e)}")
+
+
+def _get_token_linux() -> str:
+    """Retrieves Claude Code OAuth token from Linux credentials file"""
+    credentials_paths = [
+        Path.home() / ".claude" / ".credentials.json",
+        Path.home() / ".claude" / "credentials.json",
+    ]
+
+    credentials_file = None
+    for path in credentials_paths:
+        if path.exists():
+            credentials_file = path
+            break
+
+    if not credentials_file:
+        raise HTTPException(
+            status_code=500,
+            detail="Claude Code credentials not found. Please run `claude` and complete the login flow first. "
+                   f"Expected file at: {credentials_paths[0]}"
+        )
+
+    try:
+        with open(credentials_file, "r") as f:
+            credentials = json.load(f)
+        return credentials["claudeAiOauth"]["accessToken"]
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse credentials: {str(e)}")
+    except KeyError as e:
+        raise HTTPException(status_code=500, detail=f"Invalid credentials format: missing {str(e)}")
+    except PermissionError:
+        raise HTTPException(status_code=500, detail=f"Permission denied reading credentials file: {credentials_file}")
 
 
 async def fetch_usage_limits(token: str) -> dict:

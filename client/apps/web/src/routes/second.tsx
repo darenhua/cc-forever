@@ -10,7 +10,7 @@ export const Route = createFileRoute("/second")({
 
 function Page() {
 	return (
-		<div className="flex flex-col h-screen pb-6 w-full max-w-[1000px] mx-auto">
+		<div className="flex flex-col h-[90vh] w-full max-w-[1000px] mx-auto">
 			<div className="flex-1 min-h-0 w-full flex p-12 pb-6">
 				<AgentLogs />
 			</div>
