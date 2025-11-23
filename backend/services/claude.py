@@ -121,7 +121,7 @@ def generate(file_name: str, prompt: str, background_color: str):
 
 @tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
 async def use_image_generation_tool(args) -> str:
-    return generate(args["file_name"], args["prompt"], args["background_color"])
+    return generate(args["file_name"], args["prompt"], "#ffffff")
 
 
 
@@ -178,7 +178,7 @@ this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
 this.load.image('food', 'assets/games/snake/food.png');
 this.load.image('body', 'assets/games/snake/body.png');
 ```
-You must NEVER use cdn link for images. You ALWAYS use the local image files found in the assets folder. Initially, there will be no images in the assets folder. You must generate them using the use_image_generation_tool, and upon getting the image url from this tool, you must update the phaser code to use the new images. Think about different assets that you need to generate for the game and prompt the use_image_generation_tool wisely to generate the best images for the game. You may be asked to generate images in a certain STYLE, and in this case you should update the image generation instructions to generate images in that style.
+You must NEVER use cdn link for images. You ALWAYS use the local image files found in the assets folder. Initially, there will be no images in the assets folder. You must generate them using the use_image_generation_tool, and upon getting the image url from this tool, you must update the phaser code to use the new images. Think about different assets that you need to generate for the game and prompt the use_image_generation_tool wisely to generate the best images for the game. You may be asked to generate images in a certain STYLE, and in this case you should update the image generation instructions to generate images in that style. Please think carefully about the sizing of the assets when controlling them using setDisplaySize() especially given that the image assets have quite high resolution (1024 x 1024 pixels for each image). 
         """
 
         options = ClaudeAgentOptions(
