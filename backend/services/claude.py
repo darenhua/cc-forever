@@ -55,6 +55,14 @@ async def run_once(idea: Dict):
         os.makedirs(project_path, exist_ok=True)
         os.makedirs(project_resources_path, exist_ok=True)
 
+        # Create building block folders and files
+        for block in idea["blocks"]:
+            folder_path = project_resources_path + "/" + block["folder_name"]
+            os.makedirs(folder_path, exist_ok=True)
+            for file in block["files"]:
+                f = open(folder_path + "/" + file["filename"], "x")
+                f.write(file["code"])
+
         server = create_sdk_mcp_server(
             name="my-tools",
             version="1.0.0",
