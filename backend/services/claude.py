@@ -7,7 +7,11 @@ import errno
 import os
 import shutil
 import time
+import json
+import subprocess
+import tempfile
 from PIL import Image
+from bs4 import BeautifulSoup
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
 from pydantic import BaseModel, Field, ValidationError
@@ -223,6 +227,57 @@ async def generate_cover_art(session_timestamp: str, job_id: int, prompt: str):
 @tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
 async def use_image_generation_tool(args) -> str:
     return generate(args["file_name"], args["prompt"], "#ffffff")
+
+
+@tool("validate_javascript_tool", "Use the validate javascript tool to validate your index.html file at the end to see if there are any bugs left to fix", {"path_to_file": str})
+async def validate_javascript_tool(args) -> list[str]:
+    return validate_javascript(args["path_to_file"])
+
+
+def validate_javascript(path_to_file: str) -> list[str]:
+    """
+    Extract JavaScript from HTML and detect undefined function calls
+    """
+    issues = []
+
+    with open(path_to_file, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    soup = BeautifulSoup(html_content, 'html.parser')
+    script_tags = soup.find_all('script')
+
+    for i, script in enumerate(script_tags):
+        if script.string and script.string.strip():
+            js_code = script.string
+
+            # Create temporary JS file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as temp_js:
+                temp_js.write(js_code)
+                temp_js_path = temp_js.name
+
+            try:
+                # Run ESLint with no-undef rule
+                result = subprocess.run([
+                    'npx', 'eslint',
+                    '--no-config-lookup',  # Ignore local config
+                    '--no-ignore',
+                    '--quiet',
+                    '--format', 'json',
+                    temp_js_path
+                ], capture_output=True, text=True)
+                print(result)
+
+                if result.returncode != 0 and result.stdout.strip():
+                    errors = json.loads(result.stdout)
+                    for error in errors[0]['messages']:
+                        if error['ruleId'] == 'no-undef':
+                            issues.append(f"Script #{i+1}: {error['message']} (line {error['line']})")
+            except Exception as e:
+                issues.append(f"Analysis error in script #{i+1}: {str(e)}")
+            finally:
+                os.unlink(temp_js_path)
+
+    return issues
 
 
 def make_white_transparent(png_data: bytes) -> bytes:
