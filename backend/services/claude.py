@@ -72,7 +72,7 @@ def generate(file_name: str, prompt: str, background_color: str):
         types.Content(
             role="user",
             parts=[
-                types.Part.from_text(text=f"The background color should be {background_color}. You must consider the background color of the game to fake transparency for the images. {prompt}"),
+                types.Part.from_text(text=f"When generating images, the background color MUST be {background_color}. {prompt}"),
             ],
         ),
     ]
@@ -86,7 +86,6 @@ def generate(file_name: str, prompt: str, background_color: str):
             "TEXT",
         ],
         image_config=types.ImageConfig(
-            aspect_ratio="1:1",
             image_size="1K",
         ),
         tools=tools,
@@ -112,7 +111,7 @@ def generate(file_name: str, prompt: str, background_color: str):
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
             data_buffer = inline_data.data
-            file_extension = mimetypes.guess_extension(inline_data.mime_type)
+            file_extension = ".png"
             save_binary_file(f"{output_file}{file_extension}", data_buffer)
             # Return relative path for use in the project
             return f"./assets/{file_name}_{file_index - 1}{file_extension}"
