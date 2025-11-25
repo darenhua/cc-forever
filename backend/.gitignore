@@ -13,5 +13,5 @@ projects
 
 .env
 
-cartridge_arts
-assets
+cartridge_arts/*
+assets/*
