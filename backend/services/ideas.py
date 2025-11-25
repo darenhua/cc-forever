@@ -29,7 +29,12 @@ def propose_idea() -> tuple[str, list[BuildingBlock]]:
 
     chosen = random.choice(ideas)
     modifier = random.choice(modifiers)
-    newPrompt = chosen[0] + " that also has " + modifier + " aspects"
+    if random.random() < 0.2:
+        # 20% chance to use 2 modifiers
+        modifiers_sample = random.sample(modifiers, 2)
+        newPrompt = chosen[0] + " that also has " + modifiers_sample[0] + " and " + modifiers_sample[1] + " aspects"
+    else:
+        newPrompt = chosen[0] + " that also has " + modifier + " aspects"
 
     return (newPrompt, chosen[1])
 
