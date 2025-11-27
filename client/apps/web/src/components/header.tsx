@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useSheetState } from "./sheet-provider";
 
 export default function Header() {
-	const links = [{ to: "/third", label: "ClaudeMathGames" }] as const;
+	const links = [{ to: "/games", label: "ClaudeMathGames" }] as const;
 	const { setIsOpen } = useSheetState();
 
 	return (

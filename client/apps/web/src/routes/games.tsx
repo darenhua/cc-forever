@@ -143,7 +143,7 @@ async function fetchNotTestedGames({ pageParam }: { pageParam: number }) {
     }
 }
 
-export const Route = createFileRoute('/third')({
+export const Route = createFileRoute('/games')({
     component: RouteComponent,
 })
 
@@ -229,7 +229,7 @@ function GameGrid({
     }
 
     return (
-        <div className="">
+        <div className="mb-3">
             <h2 className="text-2xl font-bold mb-6">
                 {title} ({filteredCount}{filteredCount !== totalCount ? ` of ${totalCount}` : ''})
             </h2>

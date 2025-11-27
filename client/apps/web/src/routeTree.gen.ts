@@ -9,19 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ThirdRouteImport } from './routes/third'
 import { Route as SecondRouteImport } from './routes/second'
+import { Route as GamesRouteImport } from './routes/games'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayTimestampGameIdRouteImport } from './routes/play.$timestamp.$gameId'
 
-const ThirdRoute = ThirdRouteImport.update({
-  id: '/third',
-  path: '/third',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SecondRoute = SecondRouteImport.update({
   id: '/second',
   path: '/second',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GamesRoute = GamesRouteImport.update({
+  id: '/games',
+  path: '/games',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -37,52 +37,52 @@ const PlayTimestampGameIdRoute = PlayTimestampGameIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/games': typeof GamesRoute
   '/second': typeof SecondRoute
-  '/third': typeof ThirdRoute
   '/play/$timestamp/$gameId': typeof PlayTimestampGameIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/games': typeof GamesRoute
   '/second': typeof SecondRoute
-  '/third': typeof ThirdRoute
   '/play/$timestamp/$gameId': typeof PlayTimestampGameIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/games': typeof GamesRoute
   '/second': typeof SecondRoute
-  '/third': typeof ThirdRoute
   '/play/$timestamp/$gameId': typeof PlayTimestampGameIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/second' | '/third' | '/play/$timestamp/$gameId'
+  fullPaths: '/' | '/games' | '/second' | '/play/$timestamp/$gameId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/second' | '/third' | '/play/$timestamp/$gameId'
-  id: '__root__' | '/' | '/second' | '/third' | '/play/$timestamp/$gameId'
+  to: '/' | '/games' | '/second' | '/play/$timestamp/$gameId'
+  id: '__root__' | '/' | '/games' | '/second' | '/play/$timestamp/$gameId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GamesRoute: typeof GamesRoute
   SecondRoute: typeof SecondRoute
-  ThirdRoute: typeof ThirdRoute
   PlayTimestampGameIdRoute: typeof PlayTimestampGameIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/third': {
-      id: '/third'
-      path: '/third'
-      fullPath: '/third'
-      preLoaderRoute: typeof ThirdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/second': {
       id: '/second'
       path: '/second'
       fullPath: '/second'
       preLoaderRoute: typeof SecondRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/games': {
+      id: '/games'
+      path: '/games'
+      fullPath: '/games'
+      preLoaderRoute: typeof GamesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -104,8 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GamesRoute: GamesRoute,
   SecondRoute: SecondRoute,
-  ThirdRoute: ThirdRoute,
   PlayTimestampGameIdRoute: PlayTimestampGameIdRoute,
 }
 export const routeTree = rootRouteImport
