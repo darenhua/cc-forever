@@ -1,6 +1,6 @@
 // API client with OpenAPI-compatible types
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 
 // Types matching the FastAPI backend models
 export interface UsageStats {
@@ -25,7 +25,7 @@ export interface Idea {
     prompt: string;
     repos: string[];
     state: string;
-    project_path: string | null;  // Path to project folder (e.g., "20231123_143022/1")
+    project_path: string | null; // Path to project folder (e.g., "20231123_143022/1")
 }
 
 export interface QueueStatusResponse {

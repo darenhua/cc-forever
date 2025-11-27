@@ -8,6 +8,8 @@ import {
 	SheetDescription,
 } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
@@ -50,7 +52,7 @@ export default function AgentsSheet() {
 		if (isOpen) {
 			const fetchSession = async () => {
 				try {
-					const response = await fetch('http://localhost:8000/stats');
+					const response = await fetch(`${API_BASE_URL}/stats`);
 					const data = await response.json();
 
 					if (data.session !== undefined) {
@@ -70,7 +72,7 @@ export default function AgentsSheet() {
 	const { data: stats, isLoading, error } = useQuery<StatsResponse>({
 		queryKey: ['stats'],
 		queryFn: async () => {
-			const response = await fetch('http://localhost:8000/stats');
+			const response = await fetch(`${API_BASE_URL}/stats`);
 			if (!response.ok) {
 				throw new Error('Failed to fetch stats');
 			}
@@ -113,7 +115,7 @@ export default function AgentsSheet() {
 										value={stats.usage_stats.session}
 										label="Session"
 									/>
-								<ProgressBar
+									<ProgressBar
 										value={stats.usage_stats.weekly}
 										label="Weekly"
 									/>

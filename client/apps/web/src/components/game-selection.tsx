@@ -4,6 +4,9 @@ import { ArrowLeftIcon, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001"
 
 interface GameSelectionProps {
     ideas: Idea[]
@@ -18,20 +21,16 @@ interface GamePackData {
 
 interface GamePackProps {
     gamePack: GamePackData
-    selectedGameId: number | null
-    onSelectGame: (gameId: number) => void
-    onStartPlaying: () => void
 }
 
-function GamePack({ gamePack, selectedGameId, onSelectGame, onStartPlaying }: GamePackProps) {
+function GamePack({ gamePack }: GamePackProps) {
     const [expandingGame, setExpandingGame] = useState<number | null>(null)
+    const navigate = useNavigate()
 
     const handleGameClick = (gameId: number) => {
         setExpandingGame(gameId)
         setTimeout(() => {
-            onSelectGame(gameId)
-            setExpandingGame(null)
-            onStartPlaying()
+            navigate({ to: '/play/$timestamp/$gameId', params: { timestamp: gamePack.timestamp, gameId: String(gameId) } })
         }, 500)
     }
 
@@ -58,7 +57,6 @@ function GamePack({ gamePack, selectedGameId, onSelectGame, onStartPlaying }: Ga
                             hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]
                             hover:translate-x-[-2px] hover:translate-y-[-2px]
                             transition-all duration-150
-                            ${selectedGameId === gameId ? 'ring-4 ring-yellow-400 ring-offset-2 ring-offset-black' : ''}
                             ${expandingGame === gameId ? 'animate-game-select' : ''}
                         `}
                         style={{
@@ -68,7 +66,7 @@ function GamePack({ gamePack, selectedGameId, onSelectGame, onStartPlaying }: Ga
                         <div
                             className="absolute inset-0 bg-cover bg-center"
                             style={{
-                                backgroundImage: `url(http://localhost:8000/cartridge_arts/${gamePack.timestamp}/${gameId}/cover_art.png_0)`,
+                                backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${gamePack.timestamp}/${gameId}/cover_art.png_0)`,
                                 backgroundSize: '150% 120%',
                                 imageRendering: 'pixelated',
                             }}
@@ -94,7 +92,7 @@ function GamePack({ gamePack, selectedGameId, onSelectGame, onStartPlaying }: Ga
                     <div
                         className="animate-expand-fade bg-cover bg-center"
                         style={{
-                            backgroundImage: `url(http://localhost:8000/cartridge_arts/${gamePack.timestamp}/${expandingGame}/cover_art.png_0)`,
+                            backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${gamePack.timestamp}/${expandingGame}/cover_art.png_0)`,
                         }}
                     />
                 </div>
@@ -139,66 +137,12 @@ function GamePack({ gamePack, selectedGameId, onSelectGame, onStartPlaying }: Ga
     )
 }
 
-interface GameBoyProps {
-    timestamp: string
-    gameId: number
-    onBack: () => void
-}
-
-function GameBoy({ timestamp, gameId, onBack }: GameBoyProps) {
-    const { data: entryPoint, isPending } = useQuery({
-        queryKey: ['entry-point', timestamp, gameId],
-        queryFn: () => fetch(`http://localhost:8000/get-entry-point/${timestamp}/${gameId}`).then(res => res.json()),
-    })
-
-    const iframeSrc = entryPoint?.path
-        ? `http://localhost:8000${entryPoint.path}`
-        : null
-
-    return (
-        <div className="flex flex-col items-center p-6">
-            <div className="flex flex-row items-center justify-center">
-                <img
-                    src={`http://localhost:8000/cartridge_arts/${timestamp}/${gameId}/banner_art.png_0`}
-                    className="w-52 h-[800px] shrink-0 object-cover"
-                />
-                <div className="relative">
-                    {isPending ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <Loader2 className="w-8 h-8 animate-spin" />
-                        </div>
-                    ) : iframeSrc ? (
-                        <iframe
-                            src={iframeSrc}
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[700px]"
-                        />
-                    ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-red-500">
-                            No game found
-                        </div>
-                    )}
-                    <img
-                        src="http://localhost:8000/assets/border.png"
-                        className="bg-black w-[1000px] h-[800px]"
-                    />
-                </div>
-                <img
-                    src={`http://localhost:8000/cartridge_arts/${timestamp}/${gameId}/banner_art.png_0`}
-                    className="w-52 h-[800px] shrink-0 object-cover"
-                />
-            </div>
-        </div>
-    )
-}
-
 export default function GameSelection({ ideas, onViewList }: GameSelectionProps) {
     const [selectedGamePack, setSelectedGamePack] = useState<GamePackData | null>(null)
-    const [selectedGameId, setSelectedGameId] = useState<number | null>(null)
-    const [isPlaying, setIsPlaying] = useState(false)
 
     const { data: gamePacks, isPending } = useQuery({
         queryKey: ['game-packs'],
-        queryFn: () => fetch('http://localhost:8000/projects-list').then(res => res.json()),
+        queryFn: () => fetch(`${API_BASE_URL}/projects-list`).then(res => res.json()),
     })
 
     useEffect(() => {
@@ -229,8 +173,6 @@ export default function GameSelection({ ideas, onViewList }: GameSelectionProps)
                     <h1 className="text-2xl text-uchu-green ml-auto font-bold">Gaming Mode</h1>
                     <Select value={selectedGamePack?.timestamp} onValueChange={(value) => {
                         setSelectedGamePack(gamePacks.find((gamePack: any) => gamePack.timestamp === value) || null)
-                        setSelectedGameId(null)
-                        setIsPlaying(false)
                     }}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Select a Game Pack" />
@@ -241,26 +183,11 @@ export default function GameSelection({ ideas, onViewList }: GameSelectionProps)
                             ))}
                         </SelectContent>
                     </Select>
-                    {isPlaying && (
-                        <Button variant='secondary' onClick={() => setIsPlaying(false)}>
-                            Back to Grid
-                        </Button>
-                    )}
                 </div>
             </div>
-            {selectedGamePack && !isPlaying && (
+            {selectedGamePack && (
                 <GamePack
                     gamePack={selectedGamePack}
-                    selectedGameId={selectedGameId}
-                    onSelectGame={setSelectedGameId}
-                    onStartPlaying={() => setIsPlaying(true)}
-                />
-            )}
-            {isPlaying && selectedGamePack && selectedGameId && (
-                <GameBoy
-                    timestamp={selectedGamePack.timestamp}
-                    gameId={selectedGameId}
-                    onBack={() => setIsPlaying(false)}
                 />
             )}
         </div>

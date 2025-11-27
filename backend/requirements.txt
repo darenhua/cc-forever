@@ -13,6 +13,7 @@ charset-normalizer==3.4.4
 claude-agent-sdk==0.1.9
 click==8.3.1
 cryptography==46.0.3
+distro==1.9.0
 docker==7.1.0
 docker-py==1.10.6
 docker-pycreds==0.4.0
@@ -27,10 +28,12 @@ httpx-sse==0.4.3
 idna==3.11
 itsdangerous==2.2.0
 jinja2==3.1.6
+jiter==0.12.0
 jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 markupsafe==3.0.3
 mcp==1.22.0
+openai==2.8.1
 pillow==12.0.0
 pyasn1==0.6.1
 pyasn1-modules==0.4.2
@@ -51,6 +54,7 @@ soupsieve==2.8
 sse-starlette==3.0.3
 starlette==0.50.0
 tenacity==9.1.2
+tqdm==4.67.1
 typing-extensions==4.15.0
 typing-inspection==0.4.2
 urllib3==2.5.0

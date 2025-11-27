@@ -105,7 +105,7 @@ function HomeComponent() {
 			{/* Header */}
 			<header className="mb-8 text-center md:text-left">
 				<h1 className="text-4xl font-extrabold text-uchu-yin dark:text-uchu-yang tracking-tight mb-2">
-					HardestWorkingGameDev
+					ClaudeMathGames
 				</h1>
 				<p className="text-xl text-uchu-dark-gray dark:text-uchu-gray font-medium">
 					Hi Daren! I'm still working on my projects. Come back in a few minutes!

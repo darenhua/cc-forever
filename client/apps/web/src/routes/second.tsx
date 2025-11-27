@@ -7,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useSheetState } from "@/components/sheet-provider";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
+
 export const Route = createFileRoute("/second")({
 	component: Page,
 });
@@ -102,7 +104,7 @@ function Page() {
 	const { data: status, isPending } = useQuery<AgentStatus>({
 		queryKey: ['agentStatus'],
 		queryFn: async () => {
-			const response = await fetch('http://localhost:8000/agent/status');
+			const response = await fetch(`${API_BASE_URL}/agent/status`);
 			if (!response.ok) {
 				throw new Error('Failed to fetch status');
 			}

@@ -49,7 +49,7 @@ An AI-powered game generation platform that uses Claude and Gemini to create Pha
    uv run python main.py
    ```
 
-   The API will be available at `http://localhost:8000`
+   The API will be available at `http://localhost:8001`
 
 ### Frontend
 

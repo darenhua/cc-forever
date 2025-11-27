@@ -14,6 +14,8 @@ import {
     DialogTitle,
 } from "./ui/dialog";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
+
 
 
 // Sample data based on the provided example
@@ -180,7 +182,7 @@ function ClaudeCodeLogs({ status }: { status: AgentStatus }) {
 
     const mutation = useMutation({
         mutationFn: async () => {
-            const response = await fetch('http://localhost:8000/agent/start', {
+            const response = await fetch(`${API_BASE_URL}/agent/start`, {
                 method: 'POST',
             });
             return response.json();
@@ -265,7 +267,7 @@ export default function AgentLogs({ status }: { status: AgentStatus }) {
 
     const stopMutation = useMutation({
         mutationFn: async () => {
-            const response = await fetch('http://localhost:8000/agent/stop', {
+            const response = await fetch(`${API_BASE_URL}/agent/stop`, {
                 method: 'POST',
             });
             return response.json();
@@ -286,7 +288,7 @@ export default function AgentLogs({ status }: { status: AgentStatus }) {
                 <div
                     className="w-32 h-32 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer rounded bg-gray-600 bg-cover bg-center"
                     style={{
-                        backgroundImage: `url(http://localhost:8000/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0)`,
+                        backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0)`,
                         backgroundSize: '150% 120%',
                     }}
                 >
