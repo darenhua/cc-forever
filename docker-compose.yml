@@ -1,0 +1,10 @@
+services:
+  sandbox-manager:
+    build: .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # This is critical
+    ports:
+      - "8000:8000"
+      - "3001:3001"
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
