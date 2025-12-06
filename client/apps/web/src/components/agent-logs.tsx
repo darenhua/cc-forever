@@ -264,6 +264,23 @@ function ClaudeCodeLogs({ status }: { status: AgentStatus }) {
 
 export default function AgentLogs({ status }: { status: AgentStatus }) {
     const [showStopDialog, setShowStopDialog] = useState(false);
+    const [coverArtLoaded, setCoverArtLoaded] = useState(false);
+    const [coverArtKey, setCoverArtKey] = useState(0);
+
+    // Reset loading state when job changes
+    useEffect(() => {
+        setCoverArtLoaded(false);
+        setCoverArtKey(prev => prev + 1);
+    }, [status.current_job_id]);
+
+    // Retry loading cover art every 3 seconds until it loads
+    useEffect(() => {
+        if (coverArtLoaded || !status.is_running) return;
+        const interval = setInterval(() => {
+            setCoverArtKey(prev => prev + 1);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [coverArtLoaded, status.is_running]);
 
     const stopMutation = useMutation({
         mutationFn: async () => {
@@ -285,13 +302,28 @@ export default function AgentLogs({ status }: { status: AgentStatus }) {
 
         <div className="flex-1 relative flex flex-col min-h-0">
             {status.is_running && status.session_timestamp && status.current_job_id && (
-                <div
-                    className="w-32 h-32 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer rounded bg-gray-600 bg-cover bg-center"
-                    style={{
-                        backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0)`,
-                        backgroundSize: '150% 120%',
-                    }}
-                >
+                <div className="w-32 h-32 absolute top-3 right-3 translate-x-1/2 shadow-sm cursor-pointer rounded bg-gray-600 overflow-hidden">
+                    {/* Hidden img to detect when cover art loads */}
+                    <img
+                        key={coverArtKey}
+                        src={`${API_BASE_URL}/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0`}
+                        className="hidden"
+                        onLoad={() => setCoverArtLoaded(true)}
+                        onError={() => { }}
+                    />
+                    {coverArtLoaded ? (
+                        <div
+                            className="absolute inset-0 bg-cover bg-center"
+                            style={{
+                                backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${status.session_timestamp}/${status.current_job_id}/cover_art.png_0)`,
+                                backgroundSize: '150% 120%',
+                            }}
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                        </div>
+                    )}
                     <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-1 px-2">
                         <p className="text-xs text-gray-200">Making Game #{status.current_job_id}</p>
                     </div>

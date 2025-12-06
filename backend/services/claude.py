@@ -10,17 +10,22 @@ import time
 import json
 import subprocess
 import tempfile
+from pathlib import Path
 from PIL import Image
 from bs4 import BeautifulSoup
+from services.packages.game.interface import GameInterface
+from services.packages.game.types import GameMetadata, ProjectEntry
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
 from pydantic import BaseModel, Field, ValidationError
 from datetime import datetime
 
 from services.state import Idea, start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea, get_session_timestamp
+from services.s3interface import get_storage
 
 
 class JobReport(BaseModel):
+    name: str = Field(description="a creative, catchy name for the game you made")
     summary: str = Field(description="description of what you made and how you did it")
     entry_point: str = Field(default=f"./projects/<uuid>/index.html", description="the entry point of the project")
 
@@ -62,10 +67,11 @@ _current_project_path = None
 
 
 def save_binary_file(file_name, data):
-    f = open(file_name, "wb")
-    f.write(data)
-    f.close()
-    print(f"File saved to: {file_name}")
+    """Save binary file - uses storage interface for S3 or local storage."""
+    storage = get_storage()
+    # Normalize the path to be relative (remove leading ./)
+    normalized_path = file_name.lstrip("./")
+    return storage.save_binary(normalized_path, data)
 
 
 def generate_cover_art_image(file_name: str, prompt: str, background_color: str):
@@ -105,19 +111,18 @@ def generate_cover_art_image(file_name: str, prompt: str, background_color: str)
         ):
             continue
         if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
-            file_name = f"{file_name}_{file_index}"
+            output_file = f"{file_name}_{file_index}"
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
             data_buffer = inline_data.data
-            file_extension = mimetypes.guess_extension(inline_data.mime_type)
-            save_binary_file(file_name, data_buffer)
-            return file_name
+            url = save_binary_file(output_file, data_buffer)
+            return url
 
         else:
             print(chunk.text)
 
 def generate_banner_art_image(file_name: str, prompt: str):
-    """Generate cover art for games - PS2 style box art."""
+    """Generate banner art for games - vertical banner art."""
     client = genai.Client(
         api_key=os.getenv("GEMINI_API_KEY"),
     )
@@ -150,13 +155,12 @@ def generate_banner_art_image(file_name: str, prompt: str):
         ):
             continue
         if chunk.candidates[0].content.parts[0].inline_data and chunk.candidates[0].content.parts[0].inline_data.data:
-            file_name = f"{file_name}_{file_index}"
+            output_file = f"{file_name}_{file_index}"
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
             data_buffer = inline_data.data
-            file_extension = mimetypes.guess_extension(inline_data.mime_type)
-            save_binary_file(file_name, data_buffer)
-            return file_name
+            url = save_binary_file(output_file, data_buffer)
+            return url
 
         else:
             print(chunk.text)
@@ -201,28 +205,68 @@ def generate(file_name: str, prompt: str, background_color: str):
             base_path = _current_project_path if _current_project_path else "."
             # Extract just the filename if a full path was provided
             base_name = os.path.basename(file_name)
-            output_file = f"{base_path}/assets/{base_name}_{file_index}"
+            file_extension = ".png"
+            # Build the storage path (relative)
+            storage_path = f"{base_path}/assets/{base_name}_{file_index}{file_extension}".lstrip("./")
             file_index += 1
             inline_data = chunk.candidates[0].content.parts[0].inline_data
             data_buffer = make_white_transparent(png_data=inline_data.data)
-            file_extension = ".png"
-            save_binary_file(f"{output_file}{file_extension}", data_buffer)
-            # Return relative path for use in the project
+
+            # Save using storage interface
+            url = save_binary_file(storage_path, data_buffer)
+
+            # Return relative path for use in the project (for local HTML references)
+            # The Claude agent uses this path in the generated HTML
             return f"./assets/{base_name}_{file_index - 1}{file_extension}"
         else:
             print(chunk.text)
 
 async def generate_banner_art(session_timestamp: str, job_id: int, prompt: str):
-    # Create the folder if it doesn't exist
-    folder_path = f"./cartridge_arts/{session_timestamp}/{job_id}"
-    os.makedirs(folder_path, exist_ok=True)
-    return generate_banner_art_image(f"{folder_path}/banner_art.png", prompt)
+    # Storage path for banner art (no leading ./)
+    storage_path = f"cartridge_arts/{session_timestamp}/{job_id}/banner_art.png"
+    return generate_banner_art_image(storage_path, prompt)
 
 async def generate_cover_art(session_timestamp: str, job_id: int, prompt: str):
-    # Create the folder if it doesn't exist
-    folder_path = f"./cartridge_arts/{session_timestamp}/{job_id}"
-    os.makedirs(folder_path, exist_ok=True)
-    return generate_cover_art_image(f"{folder_path}/cover_art.png", prompt, "#ffffff")
+    # Storage path for cover art (no leading ./)
+    storage_path = f"cartridge_arts/{session_timestamp}/{job_id}/cover_art.png"
+    return generate_cover_art_image(storage_path, prompt, "#ffffff")
+
+
+def sync_project_to_storage(local_project_path: str, storage_prefix: str):
+    """
+    Sync a local project directory to storage (S3 or local).
+    This uploads all HTML, JS, CSS, and image files from the local project.
+
+    Args:
+        local_project_path: Local path to the project (e.g., "./projects/20231123/1")
+        storage_prefix: Storage path prefix (e.g., "projects/20231123/1")
+
+    Returns:
+        List of uploaded file URLs
+    """
+    storage = get_storage()
+    uploaded_urls = []
+    local_path = Path(local_project_path)
+
+    if not local_path.exists():
+        print(f"Project path does not exist: {local_project_path}")
+        return uploaded_urls
+
+    # Walk through all files in the project directory
+    for file_path in local_path.rglob("*"):
+        if file_path.is_file():
+            # Get relative path from project root
+            relative_path = file_path.relative_to(local_path)
+            storage_path = f"{storage_prefix}/{relative_path}".replace("\\", "/")
+
+            # Read and upload the file
+            with open(file_path, "rb") as f:
+                data = f.read()
+                url = storage.save_binary(storage_path, data)
+                uploaded_urls.append(url)
+                print(f"Synced to storage: {storage_path}")
+
+    return uploaded_urls
 
 @tool("use_image_generation_tool", "Use the image generation tool to generate an image, with the background color in hex value", {"file_name": str, "prompt": str, "background_color": str})
 async def use_image_generation_tool(args) -> str:
@@ -321,15 +365,16 @@ def make_white_transparent(png_data: bytes) -> bytes:
     return output_buffer.getvalue()
 
 
-async def run_once(idea: Dict):
+class RunOnceResult(BaseModel):
+    job_report: JobReport
+    cover_art_url: str | None = None
+    banner_art_url: str | None = None
+
+
+async def run_once(idea: Dict) -> RunOnceResult | None:
     prompt = idea["prompt"]
     job_id = idea["id"]
     session_timestamp = get_session_timestamp()
-
-    # Generate cover art and banner art in parallel
-    async with anyio.create_task_group() as tg:
-        tg.start_soon(generate_cover_art, session_timestamp, job_id, prompt)
-        tg.start_soon(generate_banner_art, session_timestamp, job_id, prompt)
 
     # Create timestamped project path: projects/<timestamp>/<id>
     project_path = f"./projects/{session_timestamp}/{job_id}"
@@ -346,75 +391,108 @@ async def run_once(idea: Dict):
     global _current_project_path
     _current_project_path = project_path
 
-    try:
-        os.makedirs(project_path, exist_ok=True)
-        os.makedirs(project_resources_path, exist_ok=True)
-        os.makedirs(project_path + "/assets", exist_ok=True)
+    # Variables to capture results from parallel tasks
+    cover_art_url = None
+    banner_art_url = None
+    job_report = None
 
-        # Create building block folders and files
-        for block in idea["blocks"]:
-            folder_name = block["folder_path"].split("/")[-1]
-            dest = project_resources_path + f"/{folder_name}"
+    async def capture_cover_art():
+        nonlocal cover_art_url
+        cover_art_url = await generate_cover_art(session_timestamp, job_id, prompt)
 
-            try:
-                shutil.copytree(block["folder_path"], dest)
-            except OSError as err:
-                # error caused if the source was not a directory
-                if err.errno == errno.ENOTDIR:
-                    shutil.copy2(block["folder_path"], dest)
-                else:
-                    print("Error: % s" % err)
+    async def capture_banner_art():
+        nonlocal banner_art_url
+        banner_art_url = await generate_banner_art(session_timestamp, job_id, prompt)
 
-        server = create_sdk_mcp_server(
-            name="gemini",
-            version="1.0.0",
-            tools=[use_image_generation_tool]
-        )
+    async def run_agent():
+        nonlocal job_report
+        try:
+            os.makedirs(project_path, exist_ok=True)
+            os.makedirs(project_resources_path, exist_ok=True)
+            os.makedirs(project_path + "/assets", exist_ok=True)
 
-        image_gen_instructions = f"""
+            # Create building block folders and files
+            for block in idea["blocks"]:
+                folder_name = block["folder_path"].split("/")[-1]
+                dest = project_resources_path + f"/{folder_name}"
+
+                try:
+                    shutil.copytree(block["folder_path"], dest)
+                except OSError as err:
+                    # error caused if the source was not a directory
+                    if err.errno == errno.ENOTDIR:
+                        shutil.copy2(block["folder_path"], dest)
+                    else:
+                        print("Error: % s" % err)
+
+            server = create_sdk_mcp_server(
+                name="gemini",
+                version="1.0.0",
+                tools=[use_image_generation_tool]
+            )
+
+            image_gen_instructions = f"""
 Here is common code that you may encounter for loading images in Phaser 3:
 ```javascript
 this.load.setBaseURL('https://cdn.phaserfiles.com/v385');
 this.load.image('food', 'assets/games/snake/food.png');
 this.load.image('body', 'assets/games/snake/body.png');
 ```
-You must NEVER use cdn link for images. You ALWAYS use the local image files found in the assets folder. Initially, there will be no images in the assets folder. You must generate them using the use_image_generation_tool, and upon getting the image url from this tool, you must update the phaser code to use the new images. Think about different assets that you need to generate for the game and prompt the use_image_generation_tool wisely to generate the best images for the game. You may be asked to generate images in a certain STYLE, and in this case you should update the image generation instructions to generate images in that style. Please think carefully about the sizing of the assets when controlling them using setDisplaySize() especially given that the image assets have quite high resolution (1024 x 1024 pixels for each image). 
-        """
+You must NEVER use cdn link for images. You ALWAYS use the local image files found in the assets folder. Initially, there will be no images in the assets folder. You must generate them using the use_image_generation_tool, and upon getting the image url from this tool, you must update the phaser code to use the new images. Think about different assets that you need to generate for the game and prompt the use_image_generation_tool wisely to generate the best images for the game. You may be asked to generate images in a certain STYLE, and in this case you should update the image generation instructions to generate images in that style. Please think carefully about the sizing of the assets when controlling them using setDisplaySize() especially given that the image assets have quite high resolution (1024 x 1024 pixels for each image).
+            """
 
-        options = ClaudeAgentOptions(
-            mcp_servers={"gemini": server},
-            allowed_tools=["Read", "Write", "Bash", "mcp__gemini__use_image_generation_tool"],
-            permission_mode='acceptEdits',
-            cwd=project_path,
-            output_format={
-                "type": "json_schema",
-                "schema": JobReport.model_json_schema()
-            }
-        )
+            options = ClaudeAgentOptions(
+                mcp_servers={"gemini": server},
+                allowed_tools=["Read", "Write", "Bash", "mcp__gemini__use_image_generation_tool"],
+                permission_mode='acceptEdits',
+                cwd=project_path,
+                output_format={
+                    "type": "json_schema",
+                    "schema": JobReport.model_json_schema()
+                }
+            )
 
-        instructions = f"We are using Phaser 3 to make web games. First read all the files in the resources folder. When you are done, please summarize what you made and how you did it. For certain games, you may need to generate images. Use the following instructions to generate images: {image_gen_instructions}. Make sure only one index.html file is present in the root of this project."
+            instructions = f"We are using Phaser 3 to make web games. First read all the files in the resources folder. When you are done, please summarize what you made and how you did it. For certain games, you may need to generate images. Use the following instructions to generate images: {image_gen_instructions}. Make sure only one index.html file is present in the root of this project."
 
-        async with ClaudeSDKClient(options=options) as client:
-            await client.query(f"{prompt} using phaser.js. \n\n{instructions}")
-            async for msg in client.receive_response():
-                print(msg)
-                add_message(msg)
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(f"{prompt} using phaser.js. \n\n{instructions}")
+                async for msg in client.receive_response():
+                    print(msg)
+                    add_message(msg)
 
-                if hasattr(msg, 'structured_output'):
-                    # Validate and get fully typed result
-                    result = JobReport.model_validate(msg.structured_output)
-                    return result
+                    if hasattr(msg, 'structured_output'):
+                        # Validate and get fully typed result
+                        job_report = JobReport.model_validate(msg.structured_output)
 
-    except ValidationError as e:
-        print(f"Validation error: {e}")
-        return "no summary available"
-    except Exception as e:
-        print(f"Error occurred: {e}")
+        except ValidationError as e:
+            print(f"Validation error: {e}")
+        except Exception as e:
+            print(f"Error occurred: {e}")
+
+    try:
+        # Run cover art, banner art, and agent ALL in parallel
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(capture_cover_art)
+            tg.start_soon(capture_banner_art)
+            tg.start_soon(run_agent)
+
+        # All tasks complete - return result if agent succeeded
+        if job_report:
+            return RunOnceResult(
+                job_report=job_report,
+                cover_art_url=cover_art_url,
+                banner_art_url=banner_art_url
+            )
+        return None
 
     finally:
+        # Sync the completed project to storage (S3 or local depending on config)
+        storage_prefix = f"projects/{session_timestamp}/{job_id}"
+        sync_project_to_storage(project_path, storage_prefix)
+        print(f"Project synced to storage: {storage_prefix}")
+
         finish_job()
         # Clean up empty directories in projects folder (including nested timestamp dirs)
-        from pathlib import Path
         projects_dir = Path("./projects")
         if projects_dir.exists():
             # Clean up empty project directories within timestamp folders
@@ -432,14 +510,37 @@ def start():
     set_online(True)
     try:
         while not should_stop():
-            result = fetch_from_queue()
-            if result:
-                job_id = result["id"]
-                summary = anyio.run(lambda: run_once(result))
-                # report back to the coordinator that the task is complete
-                res = complete_job(job_id, summary)
+            idea = fetch_from_queue()
+            if idea:
+                job_id = idea["id"]
+                run_result = anyio.run(lambda: run_once(idea))
+                if run_result:
+                    job_report = run_result.job_report
+                    # report back to the coordinator that the task is complete
+                    complete_job(job_id, job_report.summary)
 
+                    # Extract base game name from the blocks folder path (e.g., "snake" from "services/resources/snake")
+                    base_game = idea["blocks"][0]["folder_path"].split("/")[-1] if idea["blocks"] else "unknown"
 
+                    game_interface = GameInterface()
+                    game_interface.add_project(ProjectEntry(
+                        id=str(job_id),
+                        path_to_index_html=job_report.entry_point,
+                        path_to_banner_art=run_result.banner_art_url,
+                        path_to_cover_art=run_result.cover_art_url,
+                        metadata=GameMetadata(
+                            name=job_report.name,
+                            summary=job_report.summary,
+                            base_game=base_game,
+                            genre=[base_game],
+                            prompt=idea["prompt"]
+                        ),
+                        job_report=JobReport(
+                            name=job_report.name,
+                            summary=job_report.summary,
+                            entry_point=job_report.entry_point
+                        )
+                    ))
             else:
                 # No job available, wait before polling again
                 time.sleep(5)
