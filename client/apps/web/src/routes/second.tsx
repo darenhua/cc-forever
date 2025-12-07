@@ -132,9 +132,10 @@ function Page() {
 				<NextQueue status={status} />
 				<div className="flex gap-3">
 					<Button size='lg' onClick={() => setIsOpen(true)} variant="secondary">Workers</Button>
-					<Link to="/third">
+					<Link to="/games">
 						<Button size='lg' className="hover:bg-uchu-green/80 bg-uchu-green shiny-button">
-							See <span className="text-uchu-black font-bold">{status?.num_completed_ideas ?? "-"}</span> Finished Projects
+							Games
+							{/* See <span className="text-uchu-black font-bold">{status?.num_completed_ideas ?? "-"}</span> Finished Projects */}
 						</Button>
 					</Link>
 				</div>

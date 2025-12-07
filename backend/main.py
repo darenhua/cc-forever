@@ -14,6 +14,7 @@ from services.s3interface import get_storage, S3Storage
 
 from idea_routes import idea_router
 from stats_routes import stats_router
+from s3_routes import s3_router
 from services.claude import start as claude_start
 from services.ideas import start as ideas_start
 from services.state import get_state as get_agent_state, request_stop, is_online, get_all_ideas
@@ -70,6 +71,7 @@ app.add_middleware(
 
 app.include_router(idea_router)
 app.include_router(stats_router)
+app.include_router(s3_router)
 
 # Mount static files for projects
 app.mount("/projects", StaticFiles(directory="projects", html=True), name="projects")

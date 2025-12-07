@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image
 from bs4 import BeautifulSoup
 from services.packages.game.interface import GameInterface
-from services.packages.game.types import GameMetadata, ProjectEntry
+from services.packages.game.types import GameMetadata, ProjectEntry, JobReport
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, create_sdk_mcp_server, tool, Message
 
 from pydantic import BaseModel, Field, ValidationError
@@ -22,12 +22,6 @@ from datetime import datetime
 
 from services.state import Idea, start_job, add_message, finish_job, set_online, should_stop, pop_idea, update_idea, get_session_timestamp
 from services.s3interface import get_storage
-
-
-class JobReport(BaseModel):
-    name: str = Field(description="a creative, catchy name for the game you made")
-    summary: str = Field(description="description of what you made and how you did it")
-    entry_point: str = Field(default=f"./projects/<uuid>/index.html", description="the entry point of the project")
 
 
 def fetch_from_queue():
@@ -522,10 +516,20 @@ def start():
                     # Extract base game name from the blocks folder path (e.g., "snake" from "services/resources/snake")
                     base_game = idea["blocks"][0]["folder_path"].split("/")[-1] if idea["blocks"] else "unknown"
 
+                    # Normalize entry_point to full path format
+                    # Claude Agent runs with cwd=project_path, so it may return relative paths like "./index.html"
+                    entry_point = job_report.entry_point
+                    expected_prefix = f"./projects/{session_timestamp}/{job_id}"
+                    if not entry_point.startswith(expected_prefix):
+                        # Strip leading ./ if present, then prepend full path
+                        entry_point = entry_point.lstrip("./")
+                        entry_point = f"{expected_prefix}/{entry_point}"
+
                     game_interface = GameInterface()
                     game_interface.add_project(ProjectEntry(
                         id=str(job_id),
-                        path_to_index_html=job_report.entry_point,
+                        timestamp=session_timestamp,
+                        path_to_index_html=entry_point,
                         path_to_banner_art=run_result.banner_art_url,
                         path_to_cover_art=run_result.cover_art_url,
                         metadata=GameMetadata(

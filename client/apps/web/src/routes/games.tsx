@@ -8,6 +8,8 @@ import claudeMathGamesLogo from '@/assets/claudemathgames.png'
 import { useNavigate } from '@tanstack/react-router'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001"
+const USE_S3 = import.meta.env.VITE_USE_S3 === "true"
+const ASSETS_BASE_URL = USE_S3 ? `${API_BASE_URL}/s3` : API_BASE_URL
 
 // Daren's curated recommendations - games that have been tested
 const RECOMMENDED_GAMES = [
@@ -41,24 +43,25 @@ type GameMetadata = {
 
 type Project = {
     id: string
+    timestamp: string | null
     path_to_index_html: string
     path_to_banner_art: string | null
     path_to_cover_art: string | null
     metadata: GameMetadata
-    gamePackId?: string
 }
 
-type GamePack = {
-    index: number
-    id: string
-    projects: Project[]
+// Fallback to extract timestamp from path if not provided by backend
+function getTimestamp(project: Project): string {
+    if (project.timestamp) return project.timestamp
+    const match = project.path_to_index_html.match(/projects\/(\d{8}_\d{6})\//)
+    return match ? match[1] : ''
 }
 
 const ITEMS_PER_PAGE = 12
 
 function isRecommended(project: Project): boolean {
     return RECOMMENDED_GAMES.some(
-        rec => rec.timestamp === project.gamePackId && rec.id === project.id
+        rec => rec.timestamp === getTimestamp(project) && rec.id === project.id
     )
 }
 
@@ -81,16 +84,8 @@ function filterProjects(projects: Project[], filters: { genres: string[], baseGa
 }
 
 async function fetchManifest(): Promise<{ recommended: Project[], notTested: Project[] }> {
-    const res = await fetch(`${API_BASE_URL}/projects/manifest.json`)
-    const gamePacks: GamePack[] = await res.json()
-
-    // Flatten all projects from all game packs
-    const allProjects = gamePacks.flatMap(pack =>
-        pack.projects.map(project => ({
-            ...project,
-            gamePackId: pack.id
-        }))
-    )
+    const res = await fetch(`${ASSETS_BASE_URL}/projects/manifest.json`)
+    const allProjects: Project[] = await res.json()
 
     // Partition into recommended and not tested
     const recommended: Project[] = []
@@ -245,9 +240,16 @@ function GameGrid({
                         {page.projects.map((project) => (
                             <div
                                 onClick={() => {
-                                    navigate({ to: '/play/$timestamp/$gameId', params: { timestamp: project.gamePackId, gameId: project.id } })
+                                    navigate({
+                                        to: '/play/$timestamp/$gameId',
+                                        params: { timestamp: getTimestamp(project), gameId: project.id },
+                                        search: {
+                                            path: project.path_to_index_html,
+                                            banner: project.path_to_banner_art
+                                        }
+                                    })
                                 }}
-                                key={`${project.gamePackId}-${project.id}`}
+                                key={`${getTimestamp(project)}-${project.id}`}
                                 className="
                                     relative cursor-pointer group
                                     border-4 border-black
@@ -265,7 +267,7 @@ function GameGrid({
                                     <div
                                         className="absolute inset-0 bg-cover bg-center"
                                         style={{
-                                            backgroundImage: `url(${API_BASE_URL}/cartridge_arts/${project.path_to_cover_art})`,
+                                            backgroundImage: `url(${ASSETS_BASE_URL}${project.path_to_cover_art})`,
                                             backgroundSize: '150% 120%',
                                             imageRendering: 'pixelated',
                                         }}

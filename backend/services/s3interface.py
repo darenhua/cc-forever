@@ -22,10 +22,11 @@ import io
 from abc import ABC, abstractmethod
 from typing import Optional
 from pathlib import Path
-
+from dotenv import load_dotenv
 import boto3
 from botocore.exceptions import ClientError
 
+load_dotenv()
 
 class StorageInterface(ABC):
     """Abstract base class for storage backends."""
